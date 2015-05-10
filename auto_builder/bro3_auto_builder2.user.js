@@ -194,12 +194,6 @@ var CA_AVAILABLE    = 'caavl'; // 有効施設存在時のみ発動
 
 // 保存対象の設定項目
 var g_saveBuilderOptionList1 = [
-  // 建設設定[基本](チェックボックス)
-  CL_BASE, CL_PARADE, CL_TRAINING, CL_MARKET, CL_WOOD, CL_LODGE,
-  CL_EXPEDITE, CL_LABO, CL_STONE, CL_L_LODGE, CL_W_TOWER, CL_SYMBOL,
-  CL_IRON, CL_BALLACK, CL_W_SMITHY, CL_W_WHEEL, CL_FOOD, CL_B_BALLACK,
-  CL_A_SMITHY, CL_FACTORY, CL_STORAGE, CL_STABLE, CL_WEAPON, CL_OFF,
-
   // 建設設定[基本](数値入力)
   TL_BASE, TL_PARADE, TL_TRAINING, TL_MARKET, TL_WOOD, TL_LODGE,
   TL_EXPEDITE, TL_LABO, TL_STONE, TL_L_LODGE, TL_W_TOWER, TL_SYMBOL,
@@ -454,27 +448,33 @@ function drawVillageWindow() {
     j$("#villageList").append(
       "<tr><td><input type=checkbox id=" + id + "><span id='label_" + id + "'" + addClass + ">" + villageList[i].name + "</span><span id='now_" + id + "' style='display:none;'>" + now + "</span>" + postText + "</td></tr>"
     );
-    var data = [id, villageList[i].name];
+    var data = [id, villageList[i].name, villageList[i].x, villageList[i].y];
     j$("#label_" + id).bind("click", data,
       function(data){
+        // 情報設定
         j$("#villageList span[class*='current']").attr("class", "villagename");    // カレント拠点クラスをリセット
         j$("#label_" + data.data[0]).attr("class", "current villagename");
-        j$("#villageName").text(data.data[1]);    // 拠点名セット
+        j$("#villageName").text(data.data[1]);    // 拠点名
+        j$("#villageX").text(data.data[2]);       // 座標X
+        j$("#villageY").text(data.data[3]);       // 座標Y
+
+        // 設定済み情報があれば書き戻す
+        var options = loadVillageSettings(data.data[2], data.data[3]);
+        setBuilderOptions(options);   // @TODO
+
+        // 本拠地かどうかで描画情報を変える
         if (data.data[0] == 'v0') {
           j$("#baseVillage").text("(本拠地)");
           // 本拠地のみ研究所が設定可能
-          j$("#" + CL_LABO).removeAttr("disabled");
           j$("#" + CO_LABO).removeAttr("disabled");
-          j$("label", j$("#" + CL_LABO).parent()).css("text-decoration", "none");
           j$("label", j$("#" + CO_LABO).parent()).css("text-decoration", "none");
         } else {
           j$("#baseVillage").text("");
-          j$("#" + CL_LABO).attr("disabled", "");
           j$("#" + CO_LABO).attr("disabled", "");
-          j$("label", j$("#" + CL_LABO).parent()).css("text-decoration", "line-through");
           j$("label", j$("#" + CO_LABO).parent()).css("text-decoration", "line-through");
         }
-        // 現在拠点出ない場合シミュレーションボタンは押せない
+
+        // 選択された拠点が現拠点でない場合シミュレーションボタンは押せない
         if (j$("#now_" + data.data[0]).text() != "1") {
           j$("#execSimulator1").attr("disabled", "");
           j$("#execSimulator2").attr("disabled", "");
@@ -489,10 +489,10 @@ function drawVillageWindow() {
     );
   }
 
-  // デフォルト設定
-  j$("#villageList").append(
-    "<tr><td>&nbsp;</td></tr><tr><td><input type=checkbox id=vn><label for=v1 class=new>※ デフォルト設定 ※</label></td></tr>"
-  );
+//  // デフォルト設定
+//  j$("#villageList").append(
+//    "<tr><td>&nbsp;</td></tr><tr><td><input type=checkbox id=vn><label for=v1 class=new>※ デフォルト設定 ※</label></td></tr>"
+//  );
 }
 
 //----------------//
@@ -505,6 +505,8 @@ function drawSettingWindow() {
         <span>拠点名：</span> \
         <span id=villageName>オートビルダー設定画面</span> \
         <span id=baseVillage></span> \
+        <span id=villageX class='hidden'></span>\
+        <span id=villageY class='hidden'></span>\
       </div> \
       <ul id=tabs class=buildertabs> \
       </ul> \
@@ -514,18 +516,20 @@ function drawSettingWindow() {
       <input id=optionCloseButton class=builderbutton type=button value='閉じる'> \
     </div> \
   ");
-/*
+
   j$("#optionSaveButton").bind('click',
     function() {
-      var params = getChangedBuilderOptions();
+      var options = getBuilderOptions();
+      saveVillageSettings(j$("#villageX").text(), j$("#villageY").text(), options);
+      alert("保存しました");
     }
   );
+
   j$("#optionCloseButton").bind('click',
     function() {
       j$("#settingWindow").css("display", "none");
     }
   );
-*/
 
   // タブの描画
   var settings = getSettingViewContents();
@@ -561,7 +565,6 @@ function drawSettingWindow() {
   j$("#body_tab1").append("<div class=contentsheader>建設 - 施設建造上限レベルの設定</div>");
   obj = drawTabTableContents(settings.contents['tab1']);
   j$("#body_tab1").append(obj);
-  j$("#body_tab1").append("<span class=float-right><input type=checkbox id=" + CL_OFF + "><label for=v1>上記建設設定を無効にする</label></td></span>");
   j$("#body_tab1").append("<input type=button id=execSimulator1 class=lbutton value=建設シミュレーターを開く>");
   j$("#execSimulator1").bind('click',
     function() {
@@ -848,7 +851,7 @@ function drawTabTableContents(contents) {
           lineText += "<td><input type=text id=" + id + " value=" + text + " size=2 class=rspace></td>";
         } else if (type == TYPE_LABEL) {
           // 見出し
-          lineText += "<td colspan=99><span class=info>" + text + "</span></td>";
+          lineText += "<td colspan=99><span class=tableinfo>" + text + "</span></td>";
         } else if (type == TYPE_BLANK) {
           // ブランク
           lineText += "<td><span>&nbsp;</span></td>";
@@ -1099,7 +1102,7 @@ function getColor(headName) {
 //--------------------//
 function getNextBuildTarget(isBase, isSimulate) {
   // 設定オプションを取得
-  var options = getChangedBuilderOptions();
+  var options = getBuilderOptions();
 
   // 施設別のオプションを取得
   var constructOptions = getConstructionOptions();
@@ -1126,7 +1129,7 @@ function getNextBuildTarget(isBase, isSimulate) {
   }
 
   // レベルアップ可能施設の判定を行う
-  if (target == null && options[CL_OFF] == false) {
+  if (target == null) {
     target = getLevelupConstructionTarget(options, constructOptions, isSimulate);
     if (target != null) {
       g_buildMode = TYPE_LEVELUP;
@@ -1748,10 +1751,9 @@ function collectVillageMap() {
 //------------------------------//
 // 画面で設定された設定値を取得 //
 //------------------------------//
-function getChangedBuilderOptions() {
-  // 冗長すぎるのでどこかでなんとかする
-
+function getBuilderOptions() {
   var saveOptions = {};
+
   // 建設設定[基本]
   for(var i = 0; i < g_saveBuilderOptionList1.length; i++) {
     var key = g_saveBuilderOptionList1[i];
@@ -1843,6 +1845,25 @@ function getChangedBuilderOptions() {
   }
 
   return saveOptions;
+}
+
+//------------------------------//
+// 画面で設定された設定値を取得 //
+//------------------------------//
+function setBuilderOptions(options) {
+/*
+  if (options.length == 0) {
+    // 復元処理
+  } else {
+    for (key in options) {
+      if (key[0] == TYPE_CHECKBOX) {
+        j$("#" + key).prop('checked', options[key]);
+      } else {
+        j$("#" + key).val(options[key]);
+      }
+    }
+  }
+*/
 }
 
 //--------------------//
@@ -1943,22 +1964,42 @@ function getVillageList() {
   return list;
 }
 
-//----------------//
-// 拠点情報を保存 //
-//----------------//
+//------------------//
+// 拠点リストを保存 //
+//------------------//
 function saveVillageList(newVillageList) {
   GM_setValue(GM_KEY + "VillageList", JSON.stringify(newVillageList));
 }
 
-//----------------//
-// 拠点情報を取得 //
-//----------------//
+//------------------//
+// 拠点リストを取得 //
+//------------------//
 function loadVillageList() {
   var villageData = GM_getValue(GM_KEY + "VillageList", "");
   if (villageData == "") {
     return [];
   }
   return JSON.parse(villageData);
+}
+
+//------------------------------//
+// 拠点のビルダー設定情報を保存 //
+//------------------------------//
+function saveVillageSettings(x, y, options) {
+  var key = GM_KEY + "Village_" + x + "_" + y;
+  GM_setValue(key, JSON.stringify(options));
+}
+
+//------------------------------//
+// 拠点のビルダー設定情報を取得 //
+//------------------------------//
+function loadVillageSettings(x, y) {
+  var key = GM_KEY + "Village_" + x + "_" + y;
+  var villageSettings = GM_getValue(key, "");
+  if (villageSettings == "") {
+    return [];
+  }
+  return JSON.parse(villageSettings);
 }
 
 //--------------------------------------//
@@ -2021,39 +2062,39 @@ function getSettingViewContents() {
     // 建設施設リスト
     'tab1': [
       [
-        [[TYPE_CHECKBOX, CL_BASE,      '拠点　　　'], [TYPE_INPUT, TL_BASE,      20]],
-        [[TYPE_CHECKBOX, CL_PARADE,    '練兵所　　'], [TYPE_INPUT, TL_PARADE,    10]],
-        [[TYPE_CHECKBOX, CL_TRAINING,  '訓練所　　'], [TYPE_INPUT, TL_TRAINING,  10]],
-        [[TYPE_CHECKBOX, CL_MARKET,    '市場　　　'], [TYPE_INPUT, TL_MARKET,    10]],
+        [[TYPE_LABEL, '', '拠点　　　'], [TYPE_INPUT, TL_BASE,      20]],
+        [[TYPE_LABEL, '', '練兵所　　'], [TYPE_INPUT, TL_PARADE,    10]],
+        [[TYPE_LABEL, '', '訓練所　　'], [TYPE_INPUT, TL_TRAINING,  10]],
+        [[TYPE_LABEL, '', '市場　　　'], [TYPE_INPUT, TL_MARKET,    10]],
       ],
       [
-        [[TYPE_CHECKBOX, CL_WOOD,      '伐採所　　'], [TYPE_INPUT, TL_WOOD,      15]],
-        [[TYPE_CHECKBOX, CL_LODGE,     '宿舎　　　'], [TYPE_INPUT, TL_LODGE,     15]],
-        [[TYPE_CHECKBOX, CL_EXPEDITE,  '遠征訓練所'], [TYPE_INPUT, TL_EXPEDITE,  20]],
-        [[TYPE_CHECKBOX, CL_LABO,      '研究所　　'], [TYPE_INPUT, TL_LABO,      10]],
+        [[TYPE_LABEL, '', '伐採所　　'], [TYPE_INPUT, TL_WOOD,      15]],
+        [[TYPE_LABEL, '', '宿舎　　　'], [TYPE_INPUT, TL_LODGE,     15]],
+        [[TYPE_LABEL, '', '遠征訓練所'], [TYPE_INPUT, TL_EXPEDITE,  20]],
+        [[TYPE_LABEL, '', '研究所　　'], [TYPE_INPUT, TL_LABO,      10]],
       ],
       [
-        [[TYPE_CHECKBOX, CL_STONE,     '石切り場　'], [TYPE_INPUT, TL_STONE,     15]],
-        [[TYPE_CHECKBOX, CL_L_LODGE,   '大宿舎　　'], [TYPE_INPUT, TL_L_LODGE,   20]],
-        [[TYPE_CHECKBOX, CL_W_TOWER,   '見張り台　'], [TYPE_INPUT, TL_W_TOWER,   20]],
-        [[TYPE_CHECKBOX, CL_SYMBOL,    '銅雀台　　'], [TYPE_INPUT, TL_SYMBOL,    10]],
+        [[TYPE_LABEL, '', '石切り場　'], [TYPE_INPUT, TL_STONE,     15]],
+        [[TYPE_LABEL, '', '大宿舎　　'], [TYPE_INPUT, TL_L_LODGE,   20]],
+        [[TYPE_LABEL, '', '見張り台　'], [TYPE_INPUT, TL_W_TOWER,   20]],
+        [[TYPE_LABEL, '', '銅雀台　　'], [TYPE_INPUT, TL_SYMBOL,    10]],
       ],
       [
-        [[TYPE_CHECKBOX, CL_IRON,      '製鉄所　　'], [TYPE_INPUT, TL_IRON,      15]],
-        [[TYPE_CHECKBOX, CL_BALLACK,   '兵舎　　　'], [TYPE_INPUT, TL_BALLACK,   15]],
-        [[TYPE_CHECKBOX, CL_W_SMITHY,  '鍛冶場　　'], [TYPE_INPUT, TL_W_SMITHY,  10]],
-        [[TYPE_CHECKBOX, CL_W_WHEEL,   '水車　　　'], [TYPE_INPUT, TL_W_WHEEL,   10]],
+        [[TYPE_LABEL, '', '製鉄所　　'], [TYPE_INPUT, TL_IRON,      15]],
+        [[TYPE_LABEL, '', '兵舎　　　'], [TYPE_INPUT, TL_BALLACK,   15]],
+        [[TYPE_LABEL, '', '鍛冶場　　'], [TYPE_INPUT, TL_W_SMITHY,  10]],
+        [[TYPE_LABEL, '', '水車　　　'], [TYPE_INPUT, TL_W_WHEEL,   10]],
       ],
       [
-        [[TYPE_CHECKBOX, CL_FOOD,      '畑　　　　'], [TYPE_INPUT, TL_FOOD,      15]],
-        [[TYPE_CHECKBOX, CL_B_BALLACK, '弓兵舎　　'], [TYPE_INPUT, TL_B_BALLACK, 15]],
-        [[TYPE_CHECKBOX, CL_A_SMITHY,  '防具工場　'], [TYPE_INPUT, TL_A_SMITHY,  10]],
-        [[TYPE_CHECKBOX, CL_FACTORY,   '工場　　　'], [TYPE_INPUT, TL_FACTORY,   10]],
+        [[TYPE_LABEL, '', '畑　　　　'], [TYPE_INPUT, TL_FOOD,      15]],
+        [[TYPE_LABEL, '', '弓兵舎　　'], [TYPE_INPUT, TL_B_BALLACK, 15]],
+        [[TYPE_LABEL, '', '防具工場　'], [TYPE_INPUT, TL_A_SMITHY,  10]],
+        [[TYPE_LABEL, '', '工場　　　'], [TYPE_INPUT, TL_FACTORY,   10]],
       ],
       [
-        [[TYPE_CHECKBOX, CL_STORAGE,   '倉庫　　　'], [TYPE_INPUT, TL_STORAGE,   20]],
-        [[TYPE_CHECKBOX, CL_STABLE,    '厩舎　　　'], [TYPE_INPUT, TL_STABLE,    15]],
-        [[TYPE_CHECKBOX, CL_WEAPON,    '兵器工房　'], [TYPE_INPUT, TL_WEAPON,    15]],
+        [[TYPE_LABEL, '', '倉庫　　　'], [TYPE_INPUT, TL_STORAGE,   20]],
+        [[TYPE_LABEL, '', '厩舎　　　'], [TYPE_INPUT, TL_STABLE,    15]],
+        [[TYPE_LABEL, '', '兵器工房　'], [TYPE_INPUT, TL_WEAPON,    15]],
       ],
     ],
     // 建設オプション
@@ -2183,29 +2224,29 @@ function getSettingViewContents() {
 //------------------------------//
 function getConstructionOptions(constructions) {
   var options = {
-    '拠点':       {'levelup':CL_BASE,      'max':TL_BASE                                             },
-    '畑':         {'levelup':CL_FOOD,      'max':TL_FOOD,      'create':CO_FOOD,    'num':TO_FOOD    },
-    '伐採所':     {'levelup':CL_WOOD,      'max':TL_WOOD,      'create':CO_WOOD,    'num':TO_WOOD    },
-    '石切り場':   {'levelup':CL_STONE,     'max':TL_STONE,     'create':CO_STONE,   'num':TO_STONE   },
-    '製鉄所':     {'levelup':CL_IRON,      'max':TL_IRON,      'create':CO_IRON,    'num':TO_IRON    },
-    '倉庫':       {'levelup':CL_STORAGE,   'max':TL_STORAGE,   'create':CO_STORAGE, 'num':TO_STORAGE },
-    '宿舎':       {'levelup':CL_LODGE,     'max':TL_LODGE,     'create':CO_LODGE,   'num':TO_LODGE   },
-    '大宿舎':     {'levelup':CL_L_LODGE,   'max':TL_L_LODGE,   'create':CO_L_LODGE, 'num':TO_L_LODGE },
-    '練兵所':     {'levelup':CL_PARADE,    'max':TL_PARADE,    'create':CO_PARADE                    },
-    '銅雀台':     {'levelup':CL_SYMBOL,    'max':TL_SYMBOL,    'create':CO_SYMBOL                    },
-    '研究所':     {'levelup':CL_LABO,      'max':TL_LABO,      'create':CO_LABO                      },
-    '見張り台':   {'levelup':CL_W_TOWER,   'max':TL_W_TOWER,   'create':CO_W_TOWER                   },
-    '兵舎':       {'levelup':CL_BALLACK,   'max':TL_BALLACK,   'create':CO_BALLACK                   },
-    '弓兵舎':     {'levelup':CL_B_BALLACK, 'max':TL_B_BALLACK, 'create':CO_B_BALLACK                 },
-    '厩舎':       {'levelup':CL_STABLE,    'max':TL_STABLE,    'create':CO_STABLE                    },
-    '兵器工房':   {'levelup':CL_WEAPON,    'max':TL_WEAPON,    'create':CO_WEAPON                    },
-    '鍛冶場':     {'levelup':CL_W_SMITHY,  'max':TL_W_SMITHY,  'create':CO_W_SMITHY                  },
-    '防具工場':   {'levelup':CL_A_SMITHY,  'max':TL_A_SMITHY,  'create':CO_A_SMITHY                  },
-    '訓練所':     {'levelup':CL_TRAINING,  'max':TL_TRAINING,  'create':CO_TRAINING                  },
-    '遠征訓練所': {'levelup':CL_EXPEDITE,  'max':TL_EXPEDITE,  'create':CO_EXPEDITE                  },
-    '市場':       {'levelup':CL_MARKET,    'max':TL_MARKET,    'create':CO_MARKET                    },
-    '工場':       {'levelup':CL_FACTORY,   'max':TL_FACTORY,   'create':CO_FACTORY                   },
-    '水車':       {'levelup':CL_W_WHEEL,   'max':TL_W_WHEEL,   'create':CO_W_WHEEL                   },
+    '拠点':       {'max':TL_BASE                                             },
+    '畑':         {'max':TL_FOOD,      'create':CO_FOOD,    'num':TO_FOOD    },
+    '伐採所':     {'max':TL_WOOD,      'create':CO_WOOD,    'num':TO_WOOD    },
+    '石切り場':   {'max':TL_STONE,     'create':CO_STONE,   'num':TO_STONE   },
+    '製鉄所':     {'max':TL_IRON,      'create':CO_IRON,    'num':TO_IRON    },
+    '倉庫':       {'max':TL_STORAGE,   'create':CO_STORAGE, 'num':TO_STORAGE },
+    '宿舎':       {'max':TL_LODGE,     'create':CO_LODGE,   'num':TO_LODGE   },
+    '大宿舎':     {'max':TL_L_LODGE,   'create':CO_L_LODGE, 'num':TO_L_LODGE },
+    '練兵所':     {'max':TL_PARADE,    'create':CO_PARADE                    },
+    '銅雀台':     {'max':TL_SYMBOL,    'create':CO_SYMBOL                    },
+    '研究所':     {'max':TL_LABO,      'create':CO_LABO                      },
+    '見張り台':   {'max':TL_W_TOWER,   'create':CO_W_TOWER                   },
+    '兵舎':       {'max':TL_BALLACK,   'create':CO_BALLACK                   },
+    '弓兵舎':     {'max':TL_B_BALLACK, 'create':CO_B_BALLACK                 },
+    '厩舎':       {'max':TL_STABLE,    'create':CO_STABLE                    },
+    '兵器工房':   {'max':TL_WEAPON,    'create':CO_WEAPON                    },
+    '鍛冶場':     {'max':TL_W_SMITHY,  'create':CO_W_SMITHY                  },
+    '防具工場':   {'max':TL_A_SMITHY,  'create':CO_A_SMITHY                  },
+    '訓練所':     {'max':TL_TRAINING,  'create':CO_TRAINING                  },
+    '遠征訓練所': {'max':TL_EXPEDITE,  'create':CO_EXPEDITE                  },
+    '市場':       {'max':TL_MARKET,    'create':CO_MARKET                    },
+    '工場':       {'max':TL_FACTORY,   'create':CO_FACTORY                   },
+    '水車':       {'max':TL_W_WHEEL,   'create':CO_W_WHEEL                   },
   };
   return options;
 }
@@ -2324,6 +2365,9 @@ function addBuilderCss() {
     .builderWindow .lspace { \
       margin-left: 10px; \
     } \
+    .builderWindow .hidden {\
+      display:none; \
+    } \
     .builderWindow .lbutton { \
       position:relative; left: 4px; top:-2px !important;\
     } \
@@ -2335,6 +2379,9 @@ function addBuilderCss() {
     } \
     .builderWindow .info { \
       color: yellow; font-weight: bold; \
+    } \
+    .builderWindow .tableinfo { \
+      color: white; font-weight: normal; \
     } \
     .builderWindow .builderbutton { \
       font-size: 12px; position: relative; left: 0px; top: 2px;\
