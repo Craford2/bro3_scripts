@@ -865,10 +865,6 @@ function drawTabTableContents(contents) {
 //--------------------------//
 function drawSimulatorWindow() {
   // 現在資源量の取得
-  var wood = j$("#wood").text();
-  var stone = j$("#stone").text();
-  var iron = j$("#iron").text();
-  var food = j$("#rice").text();
   j$("#mapboxInner").children().append("\
     <div id=simulatorWindow class=simulatorWindow> \
       <div class=simulatorheader> \
@@ -880,16 +876,13 @@ function drawSimulatorWindow() {
           <span class='label'>石</span><input type=input size=8 id=stoneResources class='inputbox' value='0'>\
           <span class='label'>鉄</span><input type=input size=8 id=ironResources class='inputbox' value='0'>\
           <span class='label'>糧</span><input type=input size=8 id=foodResources class='inputbox' value='0'>\
+          <input type=button id=refreshResources class='refreshButton' value='更新'>\
         </div> \
       </div> \
       <div id=body_simulator> \
       </div> \
     </div> \
   ");
-  j$("#woodResources").val(wood);
-  j$("#stoneResources").val(stone);
-  j$("#ironResources").val(iron);
-  j$("#foodResources").val(food);
 
   // 現在のマップデータを描画
   var html = "";
@@ -912,6 +905,7 @@ function drawSimulatorWindow() {
       </table> \
     </div>"
   );
+
   // 閉じるボタンの作成
   j$("#simulatorWindow").append("<input id=simulatorClose class=closeButton type='button' value='閉じる'>");
   j$("#simulatorClose").bind('click',
@@ -919,6 +913,14 @@ function drawSimulatorWindow() {
       j$("#simulatorWindow").css("display", "none");
     }
   );
+
+  // 資源量の設定
+  j$("#refreshResources").bind('click',
+    function() {
+      setSimulatorResources();
+    }
+  );
+  j$("#refreshResources").click();
 
   // 初期化イベントの定義
   j$("#simulatorInit").bind('click',
@@ -1035,6 +1037,16 @@ function setSimulatorMapByPosition(x, y, color, backcolor) {
   j$("#" + id).html(html + "<br><span>" + shortName + "</span>");
   j$("#" + id).css("background-color", bgColor);
   j$("#" + id).css("color", color);
+}
+
+//------------------------------//
+// シミュレーターの資源量を更新 //
+//------------------------------//
+function setSimulatorResources() {
+  j$("#woodResources").val(j$("#wood").text());
+  j$("#stoneResources").val(j$("#stone").text());
+  j$("#ironResources").val(j$("#iron").text());
+  j$("#foodResources").val(j$("#rice").text());
 }
 
 //--------------------------------------//
@@ -2377,6 +2389,9 @@ function addBuilderCss() {
     } \
     .simulatorWindow .closeButton { \
       font-size: 12px; position: absolute; left: 6px; top: 416px;\
+    } \
+    .simulatorWindow .refreshButton { \
+      font-size: 12px; font-weight: normal;\
     } \
   ";
   GM_addStyle(css);
