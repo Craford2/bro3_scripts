@@ -447,8 +447,12 @@ function drawVillageWindow() {
     } else {
       addClass = " class='villagename'";
     }
+    var postText = "";
+    if (now == "1") {
+       postText = "<span>&nbsp;[現]</span>";
+    }
     j$("#villageList").append(
-      "<tr><td><input type=checkbox id=" + id + "><span id='label_" + id + "'" + addClass + ">" + villageList[i].name + "</span><span id='now_" + id + "' style='display:none;'>" + now + "</span></td></tr>"
+      "<tr><td><input type=checkbox id=" + id + "><span id='label_" + id + "'" + addClass + ">" + villageList[i].name + "</span><span id='now_" + id + "' style='display:none;'>" + now + "</span>" + postText + "</td></tr>"
     );
     var data = [id, villageList[i].name];
     j$("#label_" + id).bind("click", data,
@@ -487,7 +491,7 @@ function drawVillageWindow() {
 
   // デフォルト設定
   j$("#villageList").append(
-    "<tr><td><input type=checkbox id=vn><label for=v1 class=new>※ デフォルト設定 ※</label></td></tr>"
+    "<tr><td>&nbsp;</td></tr><tr><td><input type=checkbox id=vn><label for=v1 class=new>※ デフォルト設定 ※</label></td></tr>"
   );
 }
 
@@ -975,6 +979,16 @@ function drawSimulatorWindow() {
       if (target == null) {
         alert("対象施設がありません");
       } else {
+        // シミュレーターの資源を減らす
+        var resources = getResources(true);
+        if (resources.infinite == false) {
+           var cost = getBuildResources(target.construction, target.level);
+           j$("#woodResources").val(resources.wood - cost.wood);
+           j$("#stoneResources").val(resources.stone - cost.stone);
+           j$("#ironResources").val(resources.iron - cost.iron);
+           j$("#foodResources").val(resources.food - cost.food);
+        }
+
         // 建設データを描画
         setSimulatorHistory(target.x, target.y, target.construction, target.level, "white", "");
         g_villageMap[target.x][target.y].level ++;
