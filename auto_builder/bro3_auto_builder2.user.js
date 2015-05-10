@@ -971,11 +971,7 @@ function drawSimulatorWindow() {
         isBase = true;
       }
 
-      var resources = getResources(true);
-      if (j$("#infiniteResources").prop('checked') == true) {
-        resources.infinite = true;
-      }
-      var target = getNextBuildTarget(resources, isBase, true);
+      var target = getNextBuildTarget(isBase, true);
       if (target == null) {
         alert("対象施設がありません");
       } else {
@@ -1075,8 +1071,7 @@ function getColor(headName) {
 //--------------------//
 // 次回建設対象の取得 //
 //--------------------//
-// resourcesにデータがいない場合資源量をみない
-function getNextBuildTarget(resources, isBase, isSimulate) {
+function getNextBuildTarget(isBase, isSimulate) {
   // 設定オプションを取得
   var options = getChangedBuilderOptions();
 
@@ -1090,14 +1085,14 @@ function getNextBuildTarget(resources, isBase, isSimulate) {
     customCommands = analyzeCommand();
   }
   if (customCommands.length > 0) {
-    return getCustomTarget(customCommands, isCheckResource, isBase);
+    return getCustomTarget(customCommands, isBase, isSimulate);
   }
 */
   // 拡張建設が有効かつ必要な空き地がある場合、新規建設判定を行う
   var target = null;
   if (options[CO_OFF] == false) {
     // 建設可能な施設を調査
-    target = getNewBuildConstructionTarget(options, constructOptions, resources, isBase, isSimulate);
+    target = getNewBuildConstructionTarget(options, constructOptions, isBase, isSimulate);
     if (target != null) {
       g_buildMode = TYPE_BUILD;
       return getCreateTarget(target);
@@ -1106,7 +1101,7 @@ function getNextBuildTarget(resources, isBase, isSimulate) {
 
   // レベルアップ可能施設の判定を行う
   if (target == null && options[CL_OFF] == false) {
-    target = getLevelupConstructionTarget(options, constructOptions, resources, isSimulate);
+    target = getLevelupConstructionTarget(options, constructOptions, isSimulate);
     if (target != null) {
       g_buildMode = TYPE_LEVELUP;
       return getLevelupTarget(target);
@@ -1178,7 +1173,7 @@ function countConstructions(order) {
 //--------------------------//
 // 建設可能な新規施設を返す //
 //--------------------------//
-function getNewBuildConstructionTarget(options, constructOptions, resources, isBase) {
+function getNewBuildConstructionTarget(options, constructOptions, isBase, isSimulate) {
   // 建設条件ルールを取得
   var rules = getConstructionRules();
 
@@ -1203,6 +1198,9 @@ function getNewBuildConstructionTarget(options, constructOptions, resources, isB
       blankCount = csCount['空き地'].count - parseInt(options[TO_HAS_EMPTY])
     }
   }
+
+  // 資源量取得
+  var resources = getResources(isSimulate);
 
   // 建設可能な未建設新規施設が残っているか
   var target = null;
@@ -1365,11 +1363,14 @@ function isBuildResourceConstruction(construction) {
 //------------------------------//
 // レベルアップ可能な施設を返す //
 //------------------------------//
-function getLevelupConstructionTarget(options, constructOptions, resources) {
+function getLevelupConstructionTarget(options, constructOptions, isSimulate) {
   // 拠点内の施設数を数える（レベルオーダー）
   var csCount = countConstructions('level');
 
   var levelLimit = getLevelupLimit();
+
+  // 資源量取得
+  var resources = getResources(isSimulate);
 
   var target = null;
   for (construction in csCount) {
@@ -1419,7 +1420,7 @@ function getLevelupConstructionTarget(options, constructOptions, resources) {
 //------------------------//
 // カスタム建設のチェック //
 //------------------------//
-function getCustomTarget(customCommands, isCheckResource, isBase) {
+function getCustomTarget(customCommands, isBase, isSimulate) {
   // 建設条件ルールを取得
   var rules = getConstructionRules();
 
@@ -1958,7 +1959,11 @@ function loadVillageInfo(x, y){
 //----------------//
 function getResources(isSimulate) {
   var resources = new Object();
+  resources.infinite = false;
   if (isSimulate == true) {
+    if (j$("#infiniteResources").prop('checked') == true) {
+      resources.infinite = true;
+    }
     resources.wood = j$("#woodResources").val();
     resources.stone = j$("#stoneResources").val();
     resources.iron = j$("#ironResources").val();
@@ -1969,7 +1974,6 @@ function getResources(isSimulate) {
     resources.iron = j$("#iron").text();
     resources.food = j$("#rice").text();
   }
-  resources.infinite = false;
 
   return resources;
 }
