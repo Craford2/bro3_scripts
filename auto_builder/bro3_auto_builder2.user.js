@@ -156,16 +156,16 @@ var TO_L_LODGE      = 'to10';  // 大宿舎
 var CC_OFF          = 'ccoff'; // 設定無効
 
 // 内政設定
-var CA_SKILL_F1     = 'ca01';  // 食料知識
+var CA_SKILL_F1     = 'ca01';  // 食糧知識
 var CA_SKILL_W1     = 'ca02';  // 伐採知識
 var CA_SKILL_S1     = 'ca03';  // 石切知識
 var CA_SKILL_I1     = 'ca04';  // 製鉄知識
-var CA_SKILL_F2     = 'ca05';  // 食料技術
+var CA_SKILL_F2     = 'ca05';  // 食糧技術
 var CA_SKILL_W2     = 'ca06';  // 伐採技術
 var CA_SKILL_S2     = 'ca07';  // 石切技術
 var CA_SKILL_I2     = 'ca08';  // 製鉄技術
 var CA_SKILL_R1     = 'ca09';  // 豊潤祈祷
-var CA_SKILL_F3     = 'ca10';  // 食料革命
+var CA_SKILL_F3     = 'ca10';  // 食糧革命
 var CA_SKILL_W1     = 'ca21';  // 農林知識
 var CA_SKILL_W2     = 'ca22';  // 加工知識
 var CA_SKILL_W3     = 'ca23';  // 農林技術
@@ -2152,19 +2152,19 @@ function getSettingViewContents() {
       ],
       [
         [
-          [TYPE_CHECKBOX, CA_SKILL_F1, '食料知識　　　　　'], [TYPE_CHECKBOX, CA_SKILL_W1, '伐採知識　　　　　'],
+          [TYPE_CHECKBOX, CA_SKILL_F1, '食糧知識　　　　　'], [TYPE_CHECKBOX, CA_SKILL_W1, '伐採知識　　　　　'],
           [TYPE_CHECKBOX, CA_SKILL_S1, '石切知識　　　　　'], [TYPE_CHECKBOX, CA_SKILL_I1, '製鉄知識　　　　　'],
         ],
       ],
       [
         [
-          [TYPE_CHECKBOX, CA_SKILL_F2, '食料技術　　　　　'], [TYPE_CHECKBOX, CA_SKILL_W2, '伐採技術　　　　　'],
+          [TYPE_CHECKBOX, CA_SKILL_F2, '食糧技術　　　　　'], [TYPE_CHECKBOX, CA_SKILL_W2, '伐採技術　　　　　'],
           [TYPE_CHECKBOX, CA_SKILL_S2, '石切技術　　　　　'], [TYPE_CHECKBOX, CA_SKILL_I2, '製鉄技術　　　　　'],
         ],
       ],
       [
         [
-          [TYPE_CHECKBOX, CA_SKILL_R1, '豊潤祈祷　　　　　'], [TYPE_CHECKBOX, CA_SKILL_F3, '食料革命　　　　　'],
+          [TYPE_CHECKBOX, CA_SKILL_R1, '豊潤祈祷　　　　　'], [TYPE_CHECKBOX, CA_SKILL_F3, '食糧革命　　　　　'],
         ],
       ],
       [
