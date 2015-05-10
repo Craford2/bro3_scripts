@@ -63,32 +63,6 @@ var TYPE_INPUT = 't';
 var TYPE_BLANK = 'b';
 var TYPE_LABEL = 'l';
 
-// 建設設定[基本](チェックボックス)
-var CL_BASE      = 'cl01';     // 拠点
-var CL_PARADE    = 'cl02';     // 練兵所
-var CL_TRAINING  = 'cl03';     // 訓練所
-var CL_MARKET    = 'cl04';     // 市場
-var CL_WOOD      = 'cl05';     // 伐採所
-var CL_LODGE     = 'cl06';     // 宿舎
-var CL_EXPEDITE  = 'cl07';     // 遠征訓練所
-var CL_LABO      = 'cl08';     // 研究所
-var CL_STONE     = 'cl09';     // 石切り場
-var CL_L_LODGE   = 'cl10';     // 大宿舎
-var CL_W_TOWER   = 'cl11';     // 見張り台
-var CL_SYMBOL    = 'cl12';     // 銅雀台
-var CL_IRON      = 'cl13';     // 製鉄所
-var CL_BALLACK   = 'cl13';     // 兵舎
-var CL_W_SMITHY  = 'cl14';     // 鍛冶場
-var CL_W_WHEEL   = 'cl15';     // 水車
-var CL_FOOD      = 'cl16';     // 畑
-var CL_B_BALLACK = 'cl17';     // 弓兵舎
-var CL_A_SMITHY  = 'cl18';     // 防具工場
-var CL_FACTORY   = 'cl20';     // 工場
-var CL_STORAGE   = 'cl21';     // 倉庫
-var CL_STABLE    = 'cl22';     // 厩舎
-var CL_WEAPON    = 'cl23';     // 兵器工房
-var CL_OFF       = 'cloff';    // 設定無効
-
 // 建設設定[基本](数値入力)
 var TL_BASE      = 'tl01';     // 拠点
 var TL_PARADE    = 'tl02';     // 練兵所
