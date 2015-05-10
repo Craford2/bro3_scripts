@@ -1,23 +1,23 @@
 ﻿// ==UserScript==
-// @name      bro3_auto_builder2
+// @name         bro3_auto_builder2
 // @namespace    bro3_auto_builder2
 // @include      http://*.3gokushi.jp/user/*
 // @include      http://*.3gokushi.jp/village.php*
-// @description    ブラウザ三国志オートビルダー by Craford
+// @description  ブラウザ三国志オートビルダー by Craford
 // @version      0.01
 
-// @grant      GM_addStyle
-// @grant      GM_deleteValue
-// @grant      GM_getValue
-// @grant      GM_listValues
-// @grant      GM_log
-// @grant      GM_setValue
-// @grant      GM_xmlhttpRequest
-// @require      http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js
+// @grant   GM_addStyle
+// @grant   GM_deleteValue
+// @grant   GM_getValue
+// @grant   GM_listValues
+// @grant   GM_log
+// @grant   GM_setValue
+// @grant   GM_xmlhttpRequest
+// @require http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js
 
 // ==/UserScript==
-// version  date      author
-// 0.01    2014/12/27    jquery1.11.1ベースで作成開始(1.11.2はeach文の挙動がおかしいので見送り)
+// version date       author
+// 0.01    2014/12/27 jquery1.11.1ベースで作成開始(1.11.2はeach文の挙動がおかしいので見送り)
 
 // load jQuery
 jQuery.noConflict();
@@ -26,9 +26,9 @@ j$ = jQuery;
 // GreaseMonkeyラッパー関数の定義
 initGMWrapper();
 
-//----------------------
-// 変数定義
-//----------------------
+//----------//
+// 変数定義 //
+//----------//
 // ソフトウェアバージョン
 var VERSION = "0.01";
 
@@ -44,9 +44,9 @@ var SERVICE = '';              // サービス判定が必要な場合に使用�
 var SVNAME = HOST.substr(0,location.hostname.indexOf(".")) + SERVICE;
 var GM_KEY = "AB21_" + HOST.substr(0,HOST.indexOf("."));
 
-//----------------------//
-// ビルダー処理用定数  //
-//----------------------//
+//--------------------//
+// ビルダー処理用定数 //
+//--------------------//
 var TYPE_LEVELUP = 'levelup';
 var TYPE_BUILD = 'build';
 
@@ -54,9 +54,9 @@ var STATUS_DELETE   = '削除中';
 var STATUS_NOWBUILD = '建設中';
 var STATUS_PROMISE  = '建設準備中';
 
-//----------------------//
-// 設定アクセス用定数  //
-//----------------------//
+//--------------------//
+// 設定アクセス用定数 //
+//--------------------//
 // タイプ判定
 var TYPE_CHECKBOX = 'c';
 var TYPE_INPUT = 't';
@@ -268,9 +268,9 @@ var g_saveBuilderOptionList4 = [
   }
 })();
 
-//---------------------------//
-// プロフィール情報を保存   //
-//---------------------------//
+//------------------------//
+// プロフィール情報を保存 //
+//------------------------//
 function saveUserProfile(targetObject){
   // 検索ターゲットの決定
   var target = null;
@@ -324,7 +324,7 @@ function saveUserProfile(targetObject){
 }
 
 //----------------------------------//
-// ビルダー設定画面起動ボタンを描画  //
+// ビルダー設定画面起動ボタンを描画 //
 //----------------------------------//
 function drawBuilderSettingButton() {
   j$("div[id=sidebar] div[class=sideBox]").eq(1).before(
@@ -352,9 +352,9 @@ function drawBuilderSettingButton() {
   );
 }
 
-//----------------------------------//
-// 設定画面作成            //
-//----------------------------------//
+//--------------//
+// 設定画面作成 //
+//--------------//
 function createSettingWindow() {
   // css定義を追加
   addBuilderCss();
@@ -369,9 +369,9 @@ function createSettingWindow() {
   drawSimulatorWindow();
 }
 
-//----------------------------------//
-// 拠点一覧を描画          //
-//----------------------------------//
+//----------------//
+// 拠点一覧を描画 //
+//----------------//
 function drawVillageWindow() {
   j$("#mapboxInner").children().append("\
     <div id=villageWindow class=villageWindow> \
@@ -484,17 +484,16 @@ function drawVillageWindow() {
       }
     );
   }
-/*
-  // 新規拠点列を追加
+
+  // デフォルト設定
   j$("#villageList").append(
-    "<tr><td><input type=checkbox id=vn><label for=v1 class=new>※ 新規建設拠点 ※</label></td></tr>"
+    "<tr><td><input type=checkbox id=vn><label for=v1 class=new>※ デフォルト設定 ※</label></td></tr>"
   );
-*/
 }
 
-//----------------------------------//
-// 設定画面を描画          //
-//----------------------------------//
+//----------------//
+// 設定画面を描画 //
+//----------------//
 function drawSettingWindow() {
   j$("#mapboxInner").children().append("\
     <div id=settingWindow class=builderWindow> \
@@ -620,7 +619,9 @@ function drawSettingWindow() {
   );
 }
 
-// シミュレーター起動
+//--------------------//
+// シミュレーター起動 //
+//--------------------//
 function execSimulator() {
   collectVillageMap();  // マップデータをロード
   setSimulatorMap();
@@ -630,7 +631,9 @@ function execSimulator() {
   j$("#simulatorWindow").css("display", "block");
 }
 
-// コマンド解析
+//----------------------//
+// カスタムコマンド解析 //
+//----------------------//
 function analyzeCommand() {
   var lines = j$("#customBox").val().split(/[\n\r]/);
 
@@ -671,7 +674,9 @@ function analyzeCommand() {
   return commands;
 }
 
-// コマンド文字列をビルダー処理用の命令形式に変換
+//------------------------------------------------//
+// コマンド文字列をビルダー処理用の命令形式に変換 //
+//------------------------------------------------//
 function generateCommand(command) {
   if (typeof command == 'undefined') {
     return [];
@@ -776,7 +781,9 @@ function generateCommand(command) {
   return buildCommand;
 }
 
-// カスタムコマンドを画面に描画
+//------------------------------//
+// カスタムコマンドを画面に描画 //
+//------------------------------//
 function buildCustomCommandsText(commands) {
   var text = "";
   for (var i = 0; i < commands.length; i++) {
@@ -817,9 +824,9 @@ function buildCustomCommandsText(commands) {
   return text;
 }
 
-//----------------------------------//
-// 設定画面内のコンテンツ作成    //
-//----------------------------------//
+//----------------------------//
+// 設定画面内のコンテンツ作成 //
+//----------------------------//
 function drawTabTableContents(contents) {
   var obj = j$("<table class=contents>");
   for (var i = 0; i < contents.length; i++) {
@@ -849,9 +856,9 @@ function drawTabTableContents(contents) {
   return obj;
 }
 
-//----------------------------------//
-// シミュレーター画面を描画      //
-//----------------------------------//
+//--------------------------//
+// シミュレーター画面を描画 //
+//--------------------------//
 function drawSimulatorWindow() {
   // 現在資源量の取得
   var wood = j$("#wood").text();
@@ -986,7 +993,9 @@ function drawSimulatorWindow() {
   );
 }
 
-// シミューレーター画面に現拠点マップデータを描画
+//------------------------------------------------//
+// シミューレーター画面に現拠点マップデータを描画 //
+//------------------------------------------------//
 function setSimulatorMap() {
   for (y = 0; y < 7; y++) {
     for (x = 0; x < 7; x++) {
@@ -995,7 +1004,9 @@ function setSimulatorMap() {
   }
 }
 
-// シミュレーターに情報を書き込む
+//--------------------------------//
+// シミュレーターに情報を書き込む //
+//--------------------------------//
 function setSimulatorMapByPosition(x, y, color, backcolor) {
   var shortName = getShortName(g_villageMap[x][y].construction);
   var bgColor;
@@ -1016,7 +1027,9 @@ function setSimulatorMapByPosition(x, y, color, backcolor) {
   j$("#" + id).css("color", color);
 }
 
-// 履歴に情報を書き込む
+//--------------------------------------//
+// シミュレーターの履歴に情報を書き込む //
+//--------------------------------------//
 function setSimulatorHistory(x, y, construction, level, color, subtext) {
   var nextLevel = parseInt(level) + 1;
   if (j$("#simulateHistory tr").length > 18) {
@@ -1037,7 +1050,9 @@ function setSimulatorHistory(x, y, construction, level, color, subtext) {
   }
 }
 
-// パネルに対応するカラーを取得
+//------------------------------//
+// パネルに対応するカラーを取得 //
+//------------------------------//
 function getColor(headName) {
   if (headName == "森") {
     return "#00C000";
@@ -1057,9 +1072,9 @@ function getColor(headName) {
   return "#003000";
 }
 
-//--------------------------//
-// 次回建設対象の取得    //
-//--------------------------//
+//--------------------//
+// 次回建設対象の取得 //
+//--------------------//
 // resourcesにデータがいない場合資源量をみない
 function getNextBuildTarget(resources, isBase, isSimulate) {
   // 設定オプションを取得
@@ -1100,7 +1115,9 @@ function getNextBuildTarget(resources, isBase, isSimulate) {
   return null;
 }
 
-// 施設数を数える（オーダー）
+//--------------------------------//
+// 建設済み施設に関する情報を取得 //
+//--------------------------------//
 function countConstructions(order) {
   // 施設数リストを作る
   var counts = {};
@@ -1158,7 +1175,9 @@ function countConstructions(order) {
   return csCount;
 }
 
-// 建設可能な新規施設を返す
+//--------------------------//
+// 建設可能な新規施設を返す //
+//--------------------------//
 function getNewBuildConstructionTarget(options, constructOptions, resources, isBase) {
   // 建設条件ルールを取得
   var rules = getConstructionRules();
@@ -1266,7 +1285,9 @@ function getNewBuildConstructionTarget(options, constructOptions, resources, isB
   return target;
 }
 
-// 建設可能か判定する
+//--------------------//
+// 建設可能か判定する //
+//--------------------//
 function isCanBuild(rules, csCount, construction, resources) {
   // 建設条件ないばあい
   if (rules[construction].length == 0) {
@@ -1316,7 +1337,9 @@ function isCanBuild(rules, csCount, construction, resources) {
   return isBuild;
 }
 
-// 資源パネルのとき、建設対象の空き地があるかを確認
+//--------------------------------------------------//
+// 資源パネルのとき、建設対象の空き地があるかを確認 //
+//--------------------------------------------------//
 function isBuildResourceConstruction(construction) {
   if (construction != '伐採所' && construction != '石切り場' && construction != '製鉄所') {
     return true;
@@ -1339,7 +1362,9 @@ function isBuildResourceConstruction(construction) {
   return false;
 }
 
-// レベルアップ可能な施設を返す
+//------------------------------//
+// レベルアップ可能な施設を返す //
+//------------------------------//
 function getLevelupConstructionTarget(options, constructOptions, resources) {
   // 拠点内の施設数を数える（レベルオーダー）
   var csCount = countConstructions('level');
@@ -1391,7 +1416,9 @@ function getLevelupConstructionTarget(options, constructOptions, resources) {
   return target;
 }
 
-// カスタム建設のチェック
+//------------------------//
+// カスタム建設のチェック //
+//------------------------//
 function getCustomTarget(customCommands, isCheckResource, isBase) {
   // 建設条件ルールを取得
   var rules = getConstructionRules();
@@ -1475,7 +1502,9 @@ function getCustomTarget(customCommands, isCheckResource, isBase) {
 */
 }
 
-// 新規建設場所の情報を得る
+//--------------------------//
+// 新規建設場所の情報を得る //
+//--------------------------//
 function getCreateTarget(target) {
   var sorts = [];
   for (var y = 0; y < 7; y++) {
@@ -1527,7 +1556,9 @@ function getCreateTarget(target) {
   return g_villageMap[x][y];
 }
 
-// レベルアップ施設の情報を得る
+//------------------------------//
+// レベルアップ施設の情報を得る //
+//------------------------------//
 function getLevelupTarget(target) {
   for (var y = 0; y < 7; y++) {
     for (var x = 0; x < 7; x++) {
@@ -1540,7 +1571,7 @@ function getLevelupTarget(target) {
 }
 
 //--------------------------//
-// マップデータ読み込み    //
+// マップデータ読み込み     //
 //--------------------------//
 function collectVillageMap() {
   // 拠点施設リストの作成
@@ -1687,9 +1718,9 @@ function collectVillageMap() {
   g_buildList = buildList;
 }
 
-//----------------------------------//
-// 画面で設定された設定値を取得    //
-//----------------------------------//
+//------------------------------//
+// 画面で設定された設定値を取得 //
+//------------------------------//
 function getChangedBuilderOptions() {
   // 冗長すぎるのでどこかでなんとかする
 
@@ -1699,8 +1730,9 @@ function getChangedBuilderOptions() {
     var key = g_saveBuilderOptionList1[i];
     var value;
     if (j$("#" + key).attr("type") == 'checkbox') {
-      value = j$("#" + key).is(":checked");
+      value = j$("#" + key).prop('checked');
     } else {
+      // 施設レベルのため、0なら1に修正
       value = parseInt(j$("#" + key).val());
       if (value == 0) {
         value = 1;
@@ -1708,25 +1740,26 @@ function getChangedBuilderOptions() {
     }
     saveOptions[key] = value;
   }
+
   // 建設設定[拡張]
   var check_saveBuilderOptionList2 = [];
-  if (j$("#" + CO_FOOD_BASE).is(":checked") == true) {
+  if (j$("#" + CO_FOOD_BASE).prop('checked') == true) {
     // 糧村化
     saveOptions[CO_FOOD] = true;
     saveOptions[TO_FOOD] = 99;
     saveOptions[CO_SYMBOL] = true;
-    saveOptions[CO_OFF] = j$("#" + CO_OFF).is(":checked");
+    saveOptions[CO_OFF] = j$("#" + CO_OFF).prop('checked');
     check_saveBuilderOptionList2 = [
       CO_HAS_EMPTY, TO_HAS_EMPTY
     ];
-  } else if (j$("#" + CO_STORAGE_BASE).is(":checked") == true) {
+  } else if (j$("#" + CO_STORAGE_BASE).prop('checked') == true) {
     // 倉庫村化
     saveOptions[CO_FOOD] = true;
     saveOptions[TO_FOOD] = 1;
     saveOptions[CO_STORAGE] = true;
     saveOptions[TO_STORAGE] = 99;
     saveOptions[CO_SYMBOL] = true;
-    saveOptions[CO_OFF] = j$("#" + CO_OFF).is(":checked");
+    saveOptions[CO_OFF] = j$("#" + CO_OFF).prop('checked');
     check_saveBuilderOptionList2 = [
       CO_HAS_EMPTY, TO_HAS_EMPTY
     ];
@@ -1736,12 +1769,14 @@ function getChangedBuilderOptions() {
       check_saveBuilderOptionList2[check_saveBuilderOptionList2.length] = g_saveBuilderOptionList2[i];
     }
   }
+
   for(var i = 0; i < check_saveBuilderOptionList2.length; i++) {
     var key = check_saveBuilderOptionList2[i];
     var value;
     if (j$("#" + key).attr("type") == 'checkbox') {
-      value = j$("#" + key).is(":checked");
+      value = j$("#" + key).prop('checked');
     } else {
+      // 施設建設数のため0なら1に補正
       value = parseInt(j$("#" + key).val());
       if (value == 0) {
         value = 1;
@@ -1749,12 +1784,13 @@ function getChangedBuilderOptions() {
     }
     saveOptions[key] = value;
   }
+
   // 建設設定(カスタム)
   for(var i = 0; i < g_saveBuilderOptionList3.length; i++) {
     var key = g_saveBuilderOptionList3[i];
     var value;
     if (j$("#" + key).attr("type") == 'checkbox') {
-      value = j$("#" + key).is(":checked");
+      value = j$("#" + key).prop('checked');
     } else {
       value = parseInt(j$("#" + key).val());
       if (value == 0) {
@@ -1763,12 +1799,13 @@ function getChangedBuilderOptions() {
     }
     saveOptions[key] = value;
   }
+
   // 内政設定
   for(var i = 0; i < g_saveBuilderOptionList4.length; i++) {
     var key = g_saveBuilderOptionList4[i];
     var value;
     if (j$("#" + key).attr("type") == 'checkbox') {
-      value = j$("#" + key).is(":checked");
+      value = j$("#" + key).prop('checked');
     } else {
       value = parseInt(j$("#" + key).val());
       if (value == 0) {
@@ -1777,12 +1814,13 @@ function getChangedBuilderOptions() {
     }
     saveOptions[key] = value;
   }
+
   return saveOptions;
 }
 
-//--------------------------//
-// ブラ三内共通メソッド    //
-//--------------------------//
+//--------------------//
+// スクリプト実行判定 //
+//--------------------//
 function isExecute() {
   // mixi鯖障害回避用: 広告iframe内で呼び出されたら無視
   if (j$("#container").length == 0) {
@@ -1796,7 +1834,9 @@ function isExecute() {
   return true;
 }
 
-// セッションID取得
+//------------------//
+// セッションID取得 //
+//------------------//
 function getSessionId() {
   // コメントフォームからセッションIDを取得
   var match = j$("div[class=commentform]").html().match(/\n\'(.*)\'\n/);
@@ -1809,7 +1849,9 @@ function getSessionId() {
   return match[1];
 }
 
-// 拠点情報をオブジェクトに変換する
+//----------------------------------//
+// 拠点情報をオブジェクトに変換する //
+//----------------------------------//
 function VillageObject(vId, vName, vPosX, vPosY) {
   // 保存されている座標情報を取得
   var villageInfo = loadVillageInfo(vPosX, vPosY);
@@ -1846,7 +1888,9 @@ function VillageObject(vId, vName, vPosX, vPosY) {
   return this;
 }
 
-// 現在の拠点一覧を取得
+//----------------------//
+// 現在の拠点一覧を取得 //
+//----------------------//
 function getVillageList() {
   var list = [];
   j$("div[class='sideBoxInner basename'] ul li").each(
@@ -1872,12 +1916,16 @@ function getVillageList() {
   return list;
 }
 
-// 拠点情報を保存
+//----------------//
+// 拠点情報を保存 //
+//----------------//
 function saveVillageList(newVillageList) {
   GM_setValue(GM_KEY + "VillageList", JSON.stringify(newVillageList));
 }
 
-// 拠点情報を取得
+//----------------//
+// 拠点情報を取得 //
+//----------------//
 function loadVillageList() {
   var villageData = GM_getValue(GM_KEY + "VillageList", "");
   if (villageData == "") {
@@ -1886,7 +1934,9 @@ function loadVillageList() {
   return JSON.parse(villageData);
 }
 
-// 座標に対応するビルダー建設情報を取得
+//--------------------------------------//
+// 座標に対応するビルダー建設情報を取得 //
+//--------------------------------------//
 function loadVillageInfo(x, y){
   // 該当拠点が拠点リストにあるか
   var villageList = loadVillageList();
@@ -1903,7 +1953,9 @@ function loadVillageInfo(x, y){
   return false;
 }
 
-// 現在資源量取得
+//----------------//
+// 現在資源量取得 //
+//----------------//
 function getResources(isSimulate) {
   var resources = new Object();
   if (isSimulate == true) {
@@ -1922,9 +1974,9 @@ function getResources(isSimulate) {
   return resources;
 }
 
-//------------------------------------------//
-// 画面定義                  //
-//------------------------------------------//
+//----------//
+// 画面定義 //
+//----------//
 function getSettingViewContents() {
   var tabSettings = {
     'tab1':'建設設定[基本]',
@@ -2096,7 +2148,9 @@ function getSettingViewContents() {
   return {'tabs':tabSettings, 'contents':tables};
 }
 
-// 建設オプションと施設の対応表
+//------------------------------//
+// 建設オプションと施設の対応表 //
+//------------------------------//
 function getConstructionOptions(constructions) {
   var options = {
     '拠点':       {'levelup':CL_BASE,      'max':TL_BASE                                             },
@@ -2126,9 +2180,9 @@ function getConstructionOptions(constructions) {
   return options;
 }
 
-//------------------------------------------//
-// css定義の追加                            //
-//------------------------------------------//
+//---------------//
+// css定義の追加 //
+//---------------//
 function addBuilderCss() {
   var css = "\
     /** 拠点一覧のcss定義 */ \
@@ -2310,9 +2364,9 @@ function addBuilderCss() {
   GM_addStyle(css);
 }
 
-//------------------------------------------//
-// 建設関連のリソース定数アクセスメソッド  //
-//------------------------------------------//
+//----------------------------------------//
+// 建設関連のリソース定数アクセスメソッド //
+//----------------------------------------//
 // 施設建設資源配列の取得(木、石、鉄、糧、所要秒数[運営バグ対策のため正確さは不要])
 function getBuildResources(constructorName, level){
   var resources = {
@@ -2730,7 +2784,9 @@ function getBuildResources(constructorName, level){
   return resources[constructorName][level];
 }
 
-// 各施設の建設条件を取得
+//------------------------//
+// 各施設の建設条件を取得 //
+//------------------------//
 function getConstructionRules(){
   // 右辺には、[必要施設, 必須レベル]の配列を必要数定義
   // (ビルダーの処理評価順を兼ねているため、建設難易度の低い順に並べること)
@@ -2761,7 +2817,9 @@ function getConstructionRules(){
   return rules;
 }
 
-// アイコン→施設名変換
+//----------------------//
+// アイコン→施設名変換 //
+//----------------------//
 function convertConstructionIdToName(iconId){
   var icons = {
     209:'伐採所',  211:'石切り場',  213:'製鉄所',  215:'畑',      216:'銅雀台',  217:'市場',
@@ -2776,7 +2834,9 @@ function convertConstructionIdToName(iconId){
   return icons[iconId];
 }
 
-// 施設番号対応表
+//----------------//
+// 施設番号対応表 //
+//----------------//
 function getConstrutionNumber() {
   // 建設番号はアイコンチップ番号と同じ
   var numbers = {
@@ -2789,9 +2849,10 @@ function getConstrutionNumber() {
   return numbers;
 }
 
-// 施設番号対応表
+//------------------//
+// 短縮施設名対応表 //
+//------------------//
 function getShortName(construction) {
-  // 建設番号はアイコンチップ番号と同じ
   var shortNames = {
     '伐採所':'伐', '石切り場':'石', '製鉄所':'製', '畑':'畑',         '銅雀台':'銅',   '市場':'市',
     '水車':'水',   '工場':'工',     '訓練所':'訓', '研究所':'研',     '防具工場':'防', '鍛冶場':'鍛',
@@ -2802,7 +2863,9 @@ function getShortName(construction) {
   return shortNames[construction];
 }
 
-// 施設別レベルアップ上限表
+//--------------------------//
+// 施設別レベルアップ上限表 //
+//--------------------------//
 function getLevelupLimit() {
   var levelupLimits = {
     '伐採所':15, '石切り場':15, '製鉄所':15, '畑':15,     '銅雀台':10,   '市場':10,
@@ -2814,7 +2877,9 @@ function getLevelupLimit() {
   return levelupLimits;
 }
 
-// 施設別複数建設可能表
+//----------------------//
+// 施設別複数建設可能表 //
+//----------------------//
 function getMultipleBuild() {
   var multipleMap = {
     '伐採所':true, '石切り場':true,  '製鉄所':true,  '畑':true,         '銅雀台':false,   '市場':false,
@@ -2826,9 +2891,9 @@ function getMultipleBuild() {
   return multipleMap;
 }
 
-//-----------------------------------
-// Greasemonkey Wrapper
-//-----------------------------------
+//----------------------//
+// Greasemonkey Wrapper //
+//----------------------//
 function initGMWrapper() {
   // @copyright    2009, James Campos
   // @license    cc-by-3.0; http://creativecommons.org/licenses/by/3.0/
