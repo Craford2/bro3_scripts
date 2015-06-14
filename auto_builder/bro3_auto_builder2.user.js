@@ -486,6 +486,7 @@ function drawVillageWindow() {
         "<span id='label_" + id + "'" + addClass + ">" + villageList[i].name + "</span>" +
         "<span id='v_x' style='display:none;'>" + villageList[i].x + "</span>" +
         "<span id='v_y' style='display:none;'>" + villageList[i].y + "</span>" +
+        "<span id='now_" + id + "' style='display:none;'>" + now + "</span>" +
         postText +
       "</td></tr>"
     );
