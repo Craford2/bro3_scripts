@@ -17,7 +17,7 @@
 
 // ==/UserScript==
 // version date       author
-// 0.01    2014/12/27 jquery1.11.1ベースで作成開始(1.11.2はeach文の挙動がおかしいので見送り)
+// 0.01    2014/12/27 jquery1.11.1ベースで作成開始
 
 // load jQuery
 jQuery.noConflict();
@@ -228,11 +228,9 @@ var g_saveBuilderOptionList4 = [
 
     // 画面描画
     createSettingWindow();
-/*
 
     // オートビルダー処理
     autobuilder();
-*/
   }
 })();
 
@@ -291,6 +289,32 @@ function saveUserProfile(targetObject){
   saveVillageList(VillageList);
 }
 
+//----------------//
+// オートビルダー //
+//----------------//
+function autobuilder() {
+  // 現在の拠点座標を取得
+  j$("#basepoint span[class=xy]").text().match(/([-]*\d+),([-]*\d+)/);
+  var baseX = RegExp.$1;
+  var baseY = RegExp.$2;
+
+  // 拠点リストの状態を確認
+  var villageList = loadVillageList();    // 保存された拠点情報
+  var foundIdx = -1;
+  for (var i = 0; i < villageList.length; i++) {
+    if (villageList[i].x == baseX && villageList[i].y == baseY && villageList[i].roundgo == true) {
+       foundIdx = i;
+    }
+  }
+  if (foundIdx == -1) {
+    return;
+  }
+
+  // 次の建設座標を手に入れる
+  collectVillageMap();
+  var next = getNextBuildTarget(isBase(), false);
+}
+
 //----------------------------------//
 // ビルダー設定画面起動ボタンを描画 //
 //----------------------------------//
@@ -313,6 +337,22 @@ function drawBuilderSettingButton() {
         );
 */
       } else {
+        // 巡回設定の反映
+        var settings = getVillageListSettings();
+        for (var i = 0; i < villageList.length; i++) {
+          for (var j = 0; j < settings.length; j++) {
+            if (settings[j].x == villageList[i].x && settings[j].y == villageList[i].y) {
+              j$("#" + settings[j].id).prop('checked', villageList[i].roundgo);
+            }
+          }
+        }
+
+        // 拠点一覧自動更新の設定
+        j$("#al").prop('checked', loadValue("autoRefresh"));
+
+        // 自動巡回設定
+        j$("#ar").prop('checked', loadValue("autoPatrol"));
+
         j$("#villageWindow").css("display", "block");
 //        j$("#settingWindow").css("display", "block");
       }
@@ -361,6 +401,26 @@ function drawVillageWindow() {
   ");
   j$("#builderSave").bind("click",
     function() {
+      // 拠点一覧に巡回設定情報を反映させる
+      var villageList = loadVillageList();
+      var setting = getVillageListSettings();
+      for (var i = 0; i < setting.length; i++) {
+        for (var j = 0; j < villageList.length; j++) {
+          if (setting[i].x == villageList[j].x && setting[i].y == villageList[j].y) {
+            villageList[j].roundgo = setting[i].roundgo;
+          }
+        }
+      }
+      // 拠点一覧
+      saveVillageList(villageList);
+      // 拠点一覧自動更新
+      saveValue("autoRefresh", j$("#al").prop('checked'));
+      // 自動巡回設定
+      saveValue("autoPatrol", j$("#ar").prop('checked'));
+
+      alert("保存しました");
+      j$("#settingWindow").css("display", "none");
+      j$("#villageWindow").css("display", "none");
     }
   );
   j$("#builderClose").bind("click",
@@ -372,7 +432,7 @@ function drawVillageWindow() {
 
   // 拠点リストの状態を確認
   var villageList = loadVillageList();    // 保存された拠点情報
-  var nowVillageList = getVillageList();    // 現在の拠点一覧
+  var nowVillageList = getVillageList();  // 現在の拠点一覧
   for (var i = 0; i < villageList.length; i++) {
     var available = false;
     var current = false;
@@ -411,7 +471,9 @@ function drawVillageWindow() {
       addClass = " class='current villagename'";
       now = "1";
     } else if (villageList[i].available == false) {
-      addClass = " class='unknown'";
+      // 現在の拠点リストからきえた拠点は描画しない
+      continue;
+//      addClass = " class='unknown'";
     } else {
       addClass = " class='villagename'";
     }
@@ -420,8 +482,14 @@ function drawVillageWindow() {
        postText = "<span>&nbsp;[現]</span>";
     }
     j$("#villageList").append(
-      "<tr><td><input type=checkbox id=" + id + "><span id='label_" + id + "'" + addClass + ">" + villageList[i].name + "</span><span id='now_" + id + "' style='display:none;'>" + now + "</span>" + postText + "</td></tr>"
+      "<tr><td><input type=checkbox id=" + id + ">" + 
+        "<span id='label_" + id + "'" + addClass + ">" + villageList[i].name + "</span>" +
+        "<span id='v_x' style='display:none;'>" + villageList[i].x + "</span>" +
+        "<span id='v_y' style='display:none;'>" + villageList[i].y + "</span>" +
+        postText +
+      "</td></tr>"
     );
+
     var data = [id, villageList[i].name, villageList[i].x, villageList[i].y];
     j$("#label_" + id).bind("click", data,
       function(data){
@@ -431,10 +499,15 @@ function drawVillageWindow() {
         j$("#villageName").text(data.data[1]);    // 拠点名
         j$("#villageX").text(data.data[2]);       // 座標X
         j$("#villageY").text(data.data[3]);       // 座標Y
+        j$("#villageDefault").text();             // デフォルトではない
 
         // 設定済み情報があれば書き戻す
         var options = loadVillageSettings(data.data[2], data.data[3]);
-        setBuilderOptions(options);   // @TODO
+        if( options == "" ) {
+            // 設定値がなければデフォルト値を使う
+            options = loadNamedVillageSettings("default");
+        }
+        setBuilderOptions(options);
 
         // 本拠地かどうかで描画情報を変える
         if (data.data[0] == 'v0') {
@@ -463,10 +536,36 @@ function drawVillageWindow() {
     );
   }
 
-//  // デフォルト設定
-//  j$("#villageList").append(
-//    "<tr><td>&nbsp;</td></tr><tr><td><input type=checkbox id=vn><label for=v1 class=new>※ デフォルト設定 ※</label></td></tr>"
-//  );
+  // 初期値設定
+  j$("#villageList").append(
+    "<tr><td>&nbsp;</td></tr><tr><td><span id='vdefault' class='villagename'>※ 初期値設定 ※</span></td></tr>"
+  );
+  j$("#vdefault").bind("click",
+    function(){
+      // 情報設定
+      j$("#villageList span[class*='current']").attr("class", "villagename");    // カレント拠点クラスをリセット
+      j$("#vdefault").attr("class", "current villagename");
+      j$("#villageName").text("[初期値設定]");    // 拠点名
+      j$("#villageX").text("0");       // 座標X
+      j$("#villageY").text("0");       // 座標Y
+      j$("#villageDefault").text("1"); // 初期設定
+
+      // 設定値を書き戻す
+      var options = loadVillageSettings("default");
+      setBuilderOptions(options);
+
+      // 初期設定では研究所は扱えない
+      j$("#baseVillage").text("");
+      j$("#" + CO_LABO).removeAttr("disabled");
+      j$("label", j$("#" + CO_LABO).parent()).css("text-decoration", "none");
+
+      // 初期設定画面ではシミュレーション不可
+      j$("#execSimulator1").attr("disabled", "");
+      j$("#execSimulator2").attr("disabled", "");
+      j$("#execSimulator3").attr("disabled", "");
+      j$("#settingWindow").css("display", "block");
+    }
+  );
 }
 
 //----------------//
@@ -476,17 +575,18 @@ function drawSettingWindow() {
   j$("#mapboxInner").children().append("\
     <div id=settingWindow class=builderWindow> \
       <div class=builderheader> \
-        <span>拠点名：</span> \
         <span id=villageName>オートビルダー設定画面</span> \
         <span id=baseVillage></span> \
         <span id=villageX class='hidden'></span>\
         <span id=villageY class='hidden'></span>\
+        <span id=villageDefault class='hidden'></span>\
       </div> \
       <ul id=tabs class=buildertabs> \
       </ul> \
       <div id=body_tabs> \
       </div> \
       <input id=optionSaveButton class=builderbutton type=button value='保存する'> \
+      <input id=optionDefaultSaveButton class=builderbuttonRight type=button value='初期設定値として保存する'> \
       <input id=optionCloseButton class=builderbutton type=button value='閉じる'> \
     </div> \
   ");
@@ -494,8 +594,22 @@ function drawSettingWindow() {
   j$("#optionSaveButton").bind('click',
     function() {
       var options = getBuilderOptions();
-      saveVillageSettings(j$("#villageX").text(), j$("#villageY").text(), options);
+      if (j$("#villageDefault").text() == "") {
+          saveVillageSettings(j$("#villageX").text(), j$("#villageY").text(), options);
+      } else {
+          saveNamedVillageSettings("default", options);
+      }
       alert("保存しました");
+      j$("#settingWindow").css("display", "none");
+    }
+  );
+
+  j$("#optionDefaultSaveButton").bind('click',
+    function() {
+      var options = getBuilderOptions();
+      saveNamedVillageSettings("default", options);
+      alert("保存しました");
+      j$("#settingWindow").css("display", "none");
     }
   );
 
@@ -539,7 +653,7 @@ function drawSettingWindow() {
   j$("#body_tab1").append("<div class=contentsheader>建設 - 施設建造上限レベルの設定</div>");
   obj = drawTabTableContents(settings.contents['tab1']);
   j$("#body_tab1").append(obj);
-  j$("#body_tab1").append("<input type=button id=execSimulator1 class=lbutton value=建設シミュレーターを開く>");
+  j$("#body_tab1").append("<input type=button id=execSimulator1 class=lbutton value=建設シミュレーターを開く>&nbsp;<span>(現在の拠点以外では使用できません)</span>");
   j$("#execSimulator1").bind('click',
     function() {
       // シミュレーター画面を開く
@@ -555,7 +669,7 @@ function drawSettingWindow() {
   obj = drawTabTableContents(settings.contents['tab2-2']);
   j$("#body_tab2").append(obj);
   j$("#body_tab2").append("<span class=float-right><input type=checkbox id=" + CO_OFF +"><label for=v1>上記建設設定を無効にする</label></td></span>");
-  j$("#body_tab2").append("<input type=button id=execSimulator2 class=lbutton value=建設シミュレーターを開く>");
+  j$("#body_tab2").append("<input type=button id=execSimulator2 class=lbutton value=建設シミュレーターを開く>&nbsp;<span>(現在の拠点以外では使用できません)</span>");
   j$("#execSimulator2").bind('click',
     function() {
       // シミュレーター画面を開く
@@ -568,7 +682,7 @@ function drawSettingWindow() {
   j$("#body_tab3").append("<textarea id=customBox class=customBox value='' >");
   j$("#body_tab3").append("<input type=button id=analyze class=analyzeButton value=チェック＆コマンド分析>");
   j$("#body_tab3").append("<textarea id=analyzeBox class=analyzeBox readonly value='' >");
-  j$("#body_tab3").append("<input type=button id=execSimulator3 class=lbutton2 value=建設シミュレーターを開く>");
+  j$("#body_tab3").append("<input type=button id=execSimulator3 class=lbutton2 value=建設シミュレーターを開く>&nbsp;<span>(現在の拠点以外では使用できません)</span>");
   j$("#body_tab3").append("<span class=float-right><input type=checkbox id=" + CC_OFF +"><label for=v1>上記建設設定を無効にする</label></td></span>");
   j$("#analyze").bind('click',
     function() {
@@ -598,6 +712,19 @@ function drawSettingWindow() {
       <span class=float-right><input type=checkbox id=" + CA_OFF + "><label for=v1>上記内政設定を無効にする</label></td></span> \
     </div>"
   );
+
+  //--------------------------------------------------
+  // 初期値が保存されていなければ初期設定値を保存する
+  //--------------------------------------------------
+  if (loadNamedVillageSettings("init") == "") {
+      var options = getBuilderOptions();
+      saveNamedVillageSettings("init", options);
+  }
+
+  if (loadNamedVillageSettings("default") == "") {
+      var options = getBuilderOptions();
+      saveNamedVillageSettings("default", options);
+  }
 }
 
 //--------------------//
@@ -1825,7 +1952,6 @@ function getBuilderOptions() {
 // 画面で設定された設定値を取得 //
 //------------------------------//
 function setBuilderOptions(options) {
-/*
   if (options.length == 0) {
     // 復元処理
   } else {
@@ -1837,7 +1963,6 @@ function setBuilderOptions(options) {
       }
     }
   }
-*/
 }
 
 //--------------------//
@@ -1883,8 +2008,6 @@ function VillageObject(vId, vName, vPosX, vPosY) {
     this.name = vName;                            // 拠点名
     this.x = villageInfo.x;                       // 拠点x座標
     this.y = villageInfo.y;                       // 拠点y座標
-    this.hasWood = villageInfo.hasWood;           // 伐採所有無
-    this.hasStone = villageInfo.hasStone;         // 石切り場有無
     this.hasMarket = villageInfo.hasMarket;       // 市場有無
     this.builduptime = villageInfo.builduptime;   // 建設中施設完了時刻(null=建設なし)
     this.lastNewBuild = villageInfo.lastNewBuild; // 新規建設をかけた場合、その情報が入る
@@ -1897,8 +2020,6 @@ function VillageObject(vId, vName, vPosX, vPosY) {
     this.name = vName;                            // 拠点名
     this.x = vPosX;                               // 拠点x座標
     this.y = vPosY;                               // 拠点y座標
-    this.hasWood = false;                         // 伐採所有無
-    this.hasStone = false;                        // 石切り場有無
     this.hasMarket = false;                       // 市場有無
     this.builduptime = null;                      // 建設中施設完了時刻(null=建設なし)
     this.lastNewBuild = null;                     // 新規建設をかけた場合、その情報が入る
@@ -1938,6 +2059,45 @@ function getVillageList() {
   return list;
 }
 
+//----------------------------------//
+// 現在の拠点が本拠地かどうかを取得 //
+//----------------------------------//
+function isBase() {
+  var villageList = getVillageList();
+
+  // 現在の拠点座標を取得
+  j$("#basepoint span[class=xy]").text().match(/([-]*\d+),([-]*\d+)/);
+  var baseX = RegExp.$1;
+  var baseY = RegExp.$2;
+
+  if (villageList[0].x == baseX && villageList[0].y == baseY) {
+    return true;
+  }
+  return false;
+}
+
+//----------------------------//
+// 拠点リストの設定状況を取得 //
+//----------------------------//
+function getVillageListSettings() {
+  var settings = [];
+
+  j$("#villageList td").each(function(){
+    if (j$("input[type='checkbox']", this).length == 0) {
+      return;
+    }
+    var obj = new Object;
+    var check = j$("input[type='checkbox']", this);
+    obj['id'] = check.attr('id');
+    obj['roundgo'] = check.prop('checked');
+    obj['x'] = j$("#v_x", this).text();
+    obj['y'] = j$("#v_y", this).text();
+    settings.push(obj);
+  });
+
+  return settings;
+}
+
 //------------------//
 // 拠点リストを保存 //
 //------------------//
@@ -1959,21 +2119,53 @@ function loadVillageList() {
 //------------------------------//
 // 拠点のビルダー設定情報を保存 //
 //------------------------------//
-function saveVillageSettings(x, y, options) {
+function saveVillageSettings(x, y, options) {        // 通常拠点のオプション定義
   var key = GM_KEY + "Village_" + x + "_" + y;
+  GM_setValue(key, JSON.stringify(options));
+}
+function saveNamedVillageSettings(name, options) {   // 名前付き設定(init, defaultなど)のオプション定義
+  var key = GM_KEY + "Village_" + name;
   GM_setValue(key, JSON.stringify(options));
 }
 
 //------------------------------//
 // 拠点のビルダー設定情報を取得 //
 //------------------------------//
-function loadVillageSettings(x, y) {
+function loadVillageSettings(x, y) {                 // 通常拠点のオプション定義
   var key = GM_KEY + "Village_" + x + "_" + y;
   var villageSettings = GM_getValue(key, "");
   if (villageSettings == "") {
-    return [];
+    return "";
   }
   return JSON.parse(villageSettings);
+}
+function loadNamedVillageSettings(name) {            // 名前付き設定(init, defaultなど)のオプション定義
+  var key = GM_KEY + "Village_" + name;
+  var villageSettings = GM_getValue(key, "");
+  if (villageSettings == "") {
+    return "";
+  }
+  return JSON.parse(villageSettings);
+}
+
+//----------------//
+// 個別変数の保存 //
+//----------------//
+function saveValue(key, value) {
+  var key = GM_KEY + key;
+  GM_setValue(key, JSON.stringify(value));
+}
+
+//----------------//
+// 個別変数の取得 //
+//----------------//
+function loadValue(key) {
+  var key = GM_KEY + key;
+  var value = GM_getValue(key, "");
+  if (value == "") {
+    return "";
+  }
+  return JSON.parse(value);
 }
 
 //--------------------------------------//
@@ -2359,6 +2551,9 @@ function addBuilderCss() {
     } \
     .builderWindow .builderbutton { \
       font-size: 12px; position: relative; left: 0px; top: 2px;\
+    } \
+    .builderWindow .builderbuttonRight { \
+      font-size: 12px; position: relative; left: 0px; top: 2px; float:right; \
     } \
     .builderWindow .customBox { \
       width: 250px; height: 250px; position: relative; top:0px; left:4px; font-size:12px; padding:2px; resize: none; float:left;\
