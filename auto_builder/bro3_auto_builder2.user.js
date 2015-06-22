@@ -318,9 +318,9 @@ function autobuilder() {
   var restTime = -1;
   for (var i = 0; i < g_buildList.length; i++) {
     if (g_buildList[i].status == STATUS_NOWBUILD) {
-      var maxTime = getBuildResources(g_buildList[i].construction, g_buildList[i].level);
-      if (maxTime != 0 && g_buildList[i].restTime > maxTime) {
-        restTime = maxTime;
+      var resource = getBuildResources(g_buildList[i].construction, g_buildList[i].level);
+      if (resource.time != 0 && g_buildList[i].restTime > resource.time) {
+        restTime = resource.time;
       } else {
         restTime = g_buildList[i].restTime;
       }
