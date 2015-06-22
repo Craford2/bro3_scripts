@@ -309,10 +309,10 @@ function autobuilder() {
   if (foundIdx == -1) {
     return;
   }
-
   // 次の建設座標を手に入れる
   collectVillageMap();
-  var next = getNextBuildTarget(isBase(), false);
+  var options = loadVillageSettings(baseX, baseY);
+  var next = getNextBuildTarget(options, isBase(), false);
 }
 
 //----------------------------------//
@@ -1082,7 +1082,9 @@ function drawSimulatorWindow() {
         isBase = true;
       }
 
-      var target = getNextBuildTarget(isBase, true);
+      // 設定オプションを取得
+      var options = getBuilderOptions();
+      var target = getNextBuildTarget(options, isBase, true);
       if (target == null) {
         alert("対象施設がありません");
       } else {
@@ -1202,10 +1204,7 @@ function getColor(headName) {
 //--------------------//
 // 次回建設対象の取得 //
 //--------------------//
-function getNextBuildTarget(isBase, isSimulate) {
-  // 設定オプションを取得
-  var options = getBuilderOptions();
-
+function getNextBuildTarget(options, isBase, isSimulate) {
   // 施設別のオプションを取得
   var constructOptions = getConstructionOptions();
 
@@ -1518,8 +1517,8 @@ function getLevelupConstructionTarget(options, constructOptions, isSimulate) {
       continue;
     }
 
-    // レベルアップ対象外は除外
-    if (options[constructOptions[optionTarget].levelup] == false) {
+    // 設定値が存在しなければ除外
+    if (constructOptions[optionTarget].max == undefined) {
       continue;
     }
 
