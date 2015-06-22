@@ -294,16 +294,14 @@ function saveUserProfile(targetObject){
 //----------------//
 function autobuilder() {
   // 現在の拠点座標を取得
-  j$("#basepoint span[class=xy]").text().match(/([-]*\d+),([-]*\d+)/);
-  var baseX = RegExp.$1;
-  var baseY = RegExp.$2;
+  var basePos = getBasePosition();
 
   // 拠点リストの状態を確認
   var villageList = loadVillageList();    // 保存された拠点情報
   var foundIdx = -1;
   for (var i = 0; i < villageList.length; i++) {
-    if (villageList[i].x == baseX && villageList[i].y == baseY && villageList[i].roundgo == true) {
-       // 巡回指示のある拠点である場合は建設処理を行う
+    if (villageList[i].x == basePos.x && villageList[i].y == basePos.y && villageList[i].roundgo == true && villageList[i].error == "") {
+       // 巡回指示のある拠点かつ、エラーが発生していない場合は建設処理を行う
        foundIdx = i;
     }
   }
@@ -335,22 +333,89 @@ function autobuilder() {
   }
 
   // 次の建設計画の取得
-  var options = loadVillageSettings(baseX, baseY);
+  var options = loadVillageSettings(basePos.x, basePos.y);
   var next = getNextBuildTarget(options, isBase(), false);
-  if (next != null) {
-    // 石切り場と製鉄所の場合、建設できるかを事前チェックする
-    if (next.construction == '石切り場' || next.construction == '製鉄所') {
-      var csCount = countConstructions('count');
-      if (next.construction == '石切り場' && csCount['伐採所'] == 'undefined' ||
-          next.construction == '製鉄所' && csCount['石切り場'] == 'undefined') {
-          // 建設できるかチェックする
-
-// http://m61.3gokushi.jp/facility/select_facility.php?x=0&y=0#ptop
-      }
-    }
-
-    // 建設実行
+  if (next == null) {
+    return;
   }
+
+  // 石切り場と製鉄所の場合、建設できるかを事前チェックする
+  var params = new Object;
+  params.target = next;
+  params.basePos = basePos;
+  if (next.construction == '石切り場' || next.construction == '製鉄所') {
+    var csCount = countConstructions('count');
+    if (next.construction == '石切り場' && csCount['伐採所'] == 'undefined' ||
+        next.construction == '製鉄所' && csCount['石切り場'] == 'undefined') {
+
+      // 建設できるかチェックする
+      callRequest(
+        "GET",
+        "/facility/select_facility.php?x=" + next.x + "&y=" + next.y,
+        null,
+        function(responseText, params){
+          var obj = j$("<div>").append(responseText);
+          var targets = j$("table[class=commonTables] th[class=mainTtl]", obj);
+          var found = false;
+          for (var i = 0; i < targets.length; i++) {
+            if (targets[i].text == params.target.construction) {
+              found = true;
+              break;
+            }
+          }
+
+          if (found == true) {
+            // 建設可能な場合、建設実行
+            buildConstruction(params);
+          } else {
+            // 建設不可能な場合、失敗理由を設定
+            setBuildError(basePos.x, basePos.y, params.target.construcion + "の建設に必要な施設が他の拠点に存在しません。");
+          }
+        },
+        params
+      );
+    }
+  } else {
+    // 建設実行
+    buildConstruction(params);
+  }
+}
+
+//----------------------------//
+// 施設建設またはレベルアップ //
+//----------------------------//
+function buildConstruction(params) {
+}
+
+//----------------------------//
+// オートビルダーエラーの設定 //
+//----------------------------//
+function setBuildError(x, y, message) {
+  var villageList = loadVillageList();    // 保存された拠点情報
+  var foundIdx = -1;
+  for (var i = 0; i < villageList.length; i++) {
+    if (villageList[i].x == x && villageList[i].y == y) {
+      villageList[i].error = message;
+    }
+  }
+
+  // エラーメッセージを更新
+  saveVillageList(villageList);
+}
+
+//--------------------------//
+// HTTPリクエストを発行する //
+//--------------------------//
+function callRequest(method, url, data, callback, params) {
+  var xh = new XMLHttpRequest();
+  xh.open(method, "http://" + HOST + url, true);
+  xh.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+  xh.onreadystatechange = function() {
+    if (xh.readyState == 4 && xh.status == 200) {
+      callback(xh.responseText, params);
+    }
+  }
+  xh.send(data);
 }
 
 //----------------------------------//
@@ -2099,6 +2164,19 @@ function getVillageList() {
   return list;
 }
 
+//--------------------//
+// 現在拠点座標の取得 //
+//--------------------//
+function getBasePosition() {
+  // 現在の拠点座標を取得
+  j$("#basepoint span[class=xy]").text().match(/([-]*\d+),([-]*\d+)/);
+  var obj = new Object;
+  obj.x = RegExp.$1;
+  obj.y = RegExp.$2;
+
+  return obj;
+}
+
 //----------------------------------//
 // 現在の拠点が本拠地かどうかを取得 //
 //----------------------------------//
@@ -2106,11 +2184,8 @@ function isBase() {
   var villageList = getVillageList();
 
   // 現在の拠点座標を取得
-  j$("#basepoint span[class=xy]").text().match(/([-]*\d+),([-]*\d+)/);
-  var baseX = RegExp.$1;
-  var baseY = RegExp.$2;
-
-  if (villageList[0].x == baseX && villageList[0].y == baseY) {
+  var basePos = getBasePosition();
+  if (villageList[0].x == basePos.x && villageList[0].y == basePos.y) {
     return true;
   }
   return false;
