@@ -303,16 +303,41 @@ function autobuilder() {
   var foundIdx = -1;
   for (var i = 0; i < villageList.length; i++) {
     if (villageList[i].x == baseX && villageList[i].y == baseY && villageList[i].roundgo == true) {
+       // 巡回指示のある拠点である場合は建設処理を行う
        foundIdx = i;
     }
   }
   if (foundIdx == -1) {
     return;
   }
-  // 次の建設座標を手に入れる
+
+  // マップデータの読み込み
   collectVillageMap();
+
+  // 建設中施設の情報を取得
+  var restTime = -1;
+  for (var i = 0; i < g_buildList.length; i++) {
+    if (g_buildList[i].status == STATUS_NOWBUILD) {
+      var maxTime = getBuildResources(g_buildList[i].construction, g_buildList[i].level);
+      if (maxTime != 0 && g_buildList[i].restTime > maxTime) {
+        restTime = maxTime;
+      } else {
+        restTime = g_buildList[i].restTime;
+      }
+    }
+  }
+
+  if (restTime > 0) {
+    // 建設中施設がいる場合は次の建設は行わず、残り時間を更新
+    villageList[foundIdx].restTime = restTime;
+    saveVillageList(villageList);
+    return;
+  }
+
+  // 次の建設計画の取得
   var options = loadVillageSettings(baseX, baseY);
   var next = getNextBuildTarget(options, isBase(), false);
+console.log(JSON.stringify(next));
 }
 
 //----------------------------------//
@@ -1434,9 +1459,8 @@ function isCanBuild(rules, csCount, construction, resources) {
       if (typeof rules[construction][i].check == 'undefined') {
         // 施設必須なので建設不可
         continue;
-      } else {
-        // 他拠点チェックで存在しない場合建設不可(ビルダー実行時は建設確認を必ず行う)
       }
+      // 石切り場と製鉄所は建設してみようとするまでわからないため、無条件で通す
     }
 
     // 必須施設レベルチェック
@@ -1790,7 +1814,12 @@ function collectVillageMap() {
 
       // 残り時間
       j$("span[id*='area_timer']", this).text().match(/(\d+):(\d+):(\d+)/);
-      var restTime = parseInt(RegExp.$1) * 24 * 60 + parseInt(RegExp.$2) * 60 + parseInt(RegExp.$3);
+      var restTime = parseInt(RegExp.$1) * 60 * 60 + parseInt(RegExp.$2) * 60 + parseInt(RegExp.$3);
+      var maxTime = getBuildResources(construction, mapData[x][y].level);
+      if (maxTime != 0 && restTime > maxTime) {
+        // 運営のタイマーバグ対応。最大時間を異常に超えている場合、上限をある程度自動補正する
+        restTime = maxTime;
+      }
 
       // 予定表には積み上げる
       var build = new Object;
@@ -1799,6 +1828,7 @@ function collectVillageMap() {
       build.level = mapData[x][y].level;
       build.status = status;
       build.construction = construction;
+      build.restTime = restTime;
       buildList.push(build);
 
       if (typeof mapData[x][y].restTime != 'undefined') {
@@ -2009,10 +2039,9 @@ function VillageObject(vId, vName, vPosX, vPosY) {
     this.x = villageInfo.x;                       // 拠点x座標
     this.y = villageInfo.y;                       // 拠点y座標
     this.hasMarket = villageInfo.hasMarket;       // 市場有無
-    this.builduptime = villageInfo.builduptime;   // 建設中施設完了時刻(null=建設なし)
+    this.restTime = villageInfo.restTime;         // 建設中施設完了までの秒数(null=建設なし)
     this.lastNewBuild = villageInfo.lastNewBuild; // 新規建設をかけた場合、その情報が入る
     this.roundgo = villageInfo.roundgo;           // 巡回許可
-    this.buildOptions = villageInfo.buildOptions; // 拠点別建設オプション
     this.error = "";                              // エラー制御
   } else {
     // 新規拠点
@@ -2021,10 +2050,9 @@ function VillageObject(vId, vName, vPosX, vPosY) {
     this.x = vPosX;                               // 拠点x座標
     this.y = vPosY;                               // 拠点y座標
     this.hasMarket = false;                       // 市場有無
-    this.builduptime = null;                      // 建設中施設完了時刻(null=建設なし)
+    this.restTime = null;                         // 建設中施設完了までの秒数(null=建設なし)
     this.lastNewBuild = null;                     // 新規建設をかけた場合、その情報が入る
     this.roundgo = false;                         // 巡回許可
-    this.buildOptions = null;                     // 拠点別建設オプション
     this.error = "";                              // エラー制御
   }
 
