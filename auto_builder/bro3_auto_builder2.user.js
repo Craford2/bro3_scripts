@@ -337,7 +337,20 @@ function autobuilder() {
   // 次の建設計画の取得
   var options = loadVillageSettings(baseX, baseY);
   var next = getNextBuildTarget(options, isBase(), false);
-console.log(JSON.stringify(next));
+  if (next != null) {
+    // 石切り場と製鉄所の場合、建設できるかを事前チェックする
+    if (next.construction == '石切り場' || next.construction == '製鉄所') {
+      var csCount = countConstructions('count');
+      if (next.construction == '石切り場' && csCount['伐採所'] == 'undefined' ||
+          next.construction == '製鉄所' && csCount['石切り場'] == 'undefined') {
+          // 建設できるかチェックする
+
+// http://m61.3gokushi.jp/facility/select_facility.php?x=0&y=0#ptop
+      }
+    }
+
+    // 建設実行
+  }
 }
 
 //----------------------------------//
@@ -379,7 +392,6 @@ function drawBuilderSettingButton() {
         j$("#ar").prop('checked', loadValue("autoPatrol"));
 
         j$("#villageWindow").css("display", "block");
-//        j$("#settingWindow").css("display", "block");
       }
     }
   );
