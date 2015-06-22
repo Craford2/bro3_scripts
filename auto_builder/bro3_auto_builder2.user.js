@@ -339,6 +339,8 @@ function autobuilder() {
     return;
   }
 
+// 建設系は一旦コメントアウトしてgithubにコミット
+/*
   // 石切り場と製鉄所の場合、建設できるかを事前チェックする
   var params = new Object;
   params.target = next;
@@ -379,6 +381,7 @@ function autobuilder() {
     // 建設実行
     buildConstruction(params);
   }
+*/
 }
 
 //----------------------------//
