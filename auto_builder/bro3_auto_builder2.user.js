@@ -1532,38 +1532,37 @@ function isCanBuild(rules, csCount, construction, resources) {
   }
 
   // 建設判定する
-  var isBuild = false;
+  var isBuild = true;
   for (var i = 0; i < rules[construction].length; i++) {
     // 必須施設のチェック
     if (typeof csCount[rules[construction][i].con] == 'undefined') {
       if (typeof rules[construction][i].check == 'undefined') {
         // 施設必須なので建設不可
-        continue;
+        isBuild = false;
+        break;
       }
       // 石切り場と製鉄所は建設してみようとするまでわからないため、無条件で通す
     }
 
     // 必須施設レベルチェック
     if (csCount[rules[construction][i].con].level < rules[construction][i].lv) {
-      continue;
+      isBuild = false;
+      break;
     }
 
     // 伐採所、石切り場、製鉄所は建設場所があるかをきちんと確認する
     if (isBuildResourceConstruction(construction) == false) {
-      continue;
+      isBuild = false;
+      break;
     }
 
     // 資源チェック
     if (resources.infinite != true) {
       var cost = getBuildResources(construction, 0);
       if (resources.wood < cost.wood || resources.stone < cost.stone || resources.iron < cost.iron || resources.food < cost.food ) {
-        continue;
+        isBuild = false;
+        break;
       }
-      isBuild = true;
-      break;
-    } else {
-      isBuild = true;
-      break;
     }
   }
   return isBuild;
