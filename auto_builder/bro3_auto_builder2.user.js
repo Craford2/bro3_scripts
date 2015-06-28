@@ -340,16 +340,14 @@ function autobuilder() {
   }
 
 // 建設系は一旦コメントアウトしてgithubにコミット
-/*
   // 石切り場と製鉄所の場合、建設できるかを事前チェックする
   var params = new Object;
   params.target = next;
   params.basePos = basePos;
   if (next.construction == '石切り場' || next.construction == '製鉄所') {
     var csCount = countConstructions('count');
-    if (next.construction == '石切り場' && csCount['伐採所'] == 'undefined' ||
-        next.construction == '製鉄所' && csCount['石切り場'] == 'undefined') {
-
+    if (next.construction == '石切り場' && typeof csCount['伐採所'] == 'undefined' ||
+        next.construction == '製鉄所' && typeof csCount['石切り場'] == 'undefined') {
       // 建設できるかチェックする
       callRequest(
         "GET",
@@ -357,10 +355,10 @@ function autobuilder() {
         null,
         function(responseText, params){
           var obj = j$("<div>").append(responseText);
-          var targets = j$("table[class=commonTables] th[class=mainTtl]", obj);
+          var targets = j$("th[class=mainTtl]", obj);
           var found = false;
           for (var i = 0; i < targets.length; i++) {
-            if (targets[i].text == params.target.construction) {
+            if (j$(targets[i]).text() == params.target.construction) {
               found = true;
               break;
             }
@@ -371,23 +369,30 @@ function autobuilder() {
             buildConstruction(params);
           } else {
             // 建設不可能な場合、失敗理由を設定
-            setBuildError(basePos.x, basePos.y, params.target.construcion + "の建設に必要な施設が他の拠点に存在しません。");
+//            setBuildError(basePos.x, basePos.y, params.target.construcion + "の建設に必要な施設が他の拠点に存在しません。");
           }
         },
         params
       );
+    } else {
+      // 建設実行
+      buildConstruction(params);
     }
   } else {
     // 建設実行
     buildConstruction(params);
   }
-*/
 }
 
 //----------------------------//
 // 施設建設またはレベルアップ //
 //----------------------------//
 function buildConstruction(params) {
+  if (params.target.level == 0) {
+    // 新規建設
+  } else {
+    // レベルアップ
+  }
 }
 
 //----------------------------//
@@ -1440,6 +1445,7 @@ function getNewBuildConstructionTarget(options, constructOptions, isBase, isSimu
   // 建設可能な未建設新規施設が残っているか
   var target = null;
   var restCount = 0;
+
   for (construction in rules) {
     // すでに建設対象が決まっている場合は飛ばす
     if (target != null) {
@@ -1449,10 +1455,12 @@ function getNewBuildConstructionTarget(options, constructOptions, isBase, isSimu
     if (target == '研究所' && isBase == false) {
       continue;
     }
+
     // 該当施設が存在しているか
     if (typeof csCount[construction] != 'undefined') {
       continue;
     }
+
     // 建設対象か
     if (typeof options[constructOptions[construction].create] == 'undefined') {
       continue;
@@ -1474,6 +1482,7 @@ function getNewBuildConstructionTarget(options, constructOptions, isBase, isSimu
       target = resource;
     }
   }
+
   if (target != null) {
     return target;
   }
@@ -1542,12 +1551,12 @@ function isCanBuild(rules, csCount, construction, resources) {
         break;
       }
       // 石切り場と製鉄所は建設してみようとするまでわからないため、無条件で通す
-    }
-
-    // 必須施設レベルチェック
-    if (csCount[rules[construction][i].con].level < rules[construction][i].lv) {
-      isBuild = false;
-      break;
+    } else {
+      // 必須施設レベルチェック
+      if (csCount[rules[construction][i].con].level < rules[construction][i].lv) {
+        isBuild = false;
+        break;
+      }
     }
 
     // 伐採所、石切り場、製鉄所は建設場所があるかをきちんと確認する
@@ -2084,7 +2093,7 @@ function isExecute() {
   }
 
   // 歴史書モードの場合、ツールを動かさない
-  if( j$("a[title=歴史書を見る]").length > 0 ){
+  if( j$("#sidebar img[title=歴史書]").length > 0 ){
     return false;
   }
   return true;
