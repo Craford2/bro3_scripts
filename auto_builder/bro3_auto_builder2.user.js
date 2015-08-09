@@ -306,6 +306,7 @@ function autobuilder() {
     }
   }
   if (foundIdx == -1) {
+    autopatrol();   // 自動巡回処理
     return;
   }
 
@@ -328,22 +329,30 @@ function autobuilder() {
   if (restTime > 0) {
     // 建設中施設がいる場合は次の建設は行わず、残り時間を更新
     villageList[foundIdx].restTime = restTime;
+    villageList[foundIdx].patrolTime = Math.floor(new Date().getTime() / 1000);
     saveVillageList(villageList);
+    autopatrol();  // 自動巡回処理
     return;
+  } else {
+    // 建設中がいないばあいはタイマーをリセット
+    villageList[foundIdx].restTime = null;
+    villageList[foundIdx].patrolTime = null;
+    saveVillageList(villageList);
   }
 
   // 次の建設計画の取得
   var options = loadVillageSettings(basePos.x, basePos.y);
   var next = getNextBuildTarget(options, isBase(), false);
   if (next == null) {
+    autopatrol();  // 自動巡回処理
     return;
   }
 
-// 建設系は一旦コメントアウトしてgithubにコミット
   // 石切り場と製鉄所の場合、建設できるかを事前チェックする
   var params = new Object;
   params.target = next;
   params.basePos = basePos;
+  params.villageInfo = villageList[foundIdx];
   if (next.construction == '石切り場' || next.construction == '製鉄所') {
     var csCount = countConstructions('count');
     if (next.construction == '石切り場' && typeof csCount['伐採所'] == 'undefined' ||
@@ -369,30 +378,93 @@ function autobuilder() {
             buildConstruction(params);
           } else {
             // 建設不可能な場合、失敗理由を設定
-//            setBuildError(basePos.x, basePos.y, params.target.construcion + "の建設に必要な施設が他の拠点に存在しません。");
+            setBuildError(params.villageInfo.x, params.villageInfo.y, params.target.construcion + "の必須施設不足です");
           }
         },
         params
       );
     } else {
       // 建設実行
-      buildConstruction(params);
+      buildConstruction(villageList[foundIdx], params);
     }
   } else {
     // 建設実行
-    buildConstruction(params);
+    buildConstruction(villageList[foundIdx], params);
   }
 }
 
 //----------------------------//
 // 施設建設またはレベルアップ //
 //----------------------------//
-function buildConstruction(params) {
+function buildConstruction(villageInfo, params) {
+  var data = "";
   if (params.target.level == 0) {
     // 新規建設
+    var targetNumber = getConstructionNumber(params.target.construction);  // 施設番号
+    data = "ssid=" + getSessionId() + "&id=" + targetNumber + "&x=" + params.target.x + "&y=" + params.target.y + "&village_id=" + villageInfo.id;
   } else {
     // レベルアップ
+    data = "ssid=" + getSessionId() + "&x=" + params.target.x + "&y=" + params.target.y + "&village_id=" + villageInfo.id;
   }
+
+  // 建設実行
+  setBuildError(villageInfo.x, villageInfo.y, "建設中：" + params.target.construcion);  // 情報を入れることで万一の暴走阻止
+  callRequest(
+    "POST",
+    "/facility/build.php",
+    data,
+    function(responseText, params){
+      if (responseText.match(/建設中/)) {
+        setBuildError(params.x, params.y, "");
+      } else {
+        // 建設失敗の場合、失敗理由を設定
+        setBuildError(params.x, params.y, params.target.construcion + "の建設に失敗しました");
+      }
+      location.reload();
+    },
+    villageInfo
+  );
+}
+
+//----------//
+// 自動巡回 //
+//----------//
+function autopatrol() {
+  if (loadValue("autoPatrol") == false) {
+    return;
+  }
+  var villageList = loadVillageList();    // 保存された拠点情報
+  var time = 2147483647;    // 2^32 - 1
+  var pos = -1;
+  for (var i = 0; i < villageList.length; i++) {
+    if (villageList[i].roundgo == true && villageList[i].patrolTime != null && villageList[i].restTime != null) {
+      var next = villageList[i].patrolTime + villageList[i].restTime;
+      if (next < time) {
+        time = next;
+        pos = i;
+      }
+    }
+  }
+
+  var now = Math.floor(new Date().getTime() / 1000);
+  var nextPatrol = time - now;
+  if (nextPatrol > 300) {
+    // 300秒を最大巡回時間とする
+    nextPatrol = 300;
+  } else if (nextPatrol < 10) {
+    // 10秒以下なら、10秒後
+    nextPatrol = 10;       
+  } else {
+    nextPatrol = nextPatrol + 10;  // 10秒以上なら建設完了10秒後にする
+  }
+
+  // 次の巡回先を指定
+  setInterval(
+    function() {
+      location.href = "http://" + HOST + "/village_change.php?village_id=" + villageList[pos].id + "&from=menu&page=%2Fvillage.php";
+    },
+    nextPatrol * 1000
+  );
 }
 
 //----------------------------//
@@ -577,20 +649,24 @@ function drawVillageWindow() {
     var id = "v" + i;
     var addClass = "";
     var now = "0";
+    var postText = "";
+
     if ( villageList[i].current == true ) {
       addClass = " class='current villagename'";
       now = "1";
-    } else if (villageList[i].available == false) {
-      // 現在の拠点リストからきえた拠点は描画しない
-      continue;
-//      addClass = " class='unknown'";
     } else {
       addClass = " class='villagename'";
     }
-    var postText = "";
+
     if (now == "1") {
        postText = "<span>&nbsp;[現]</span>";
     }
+
+    // ビルダー実行エラーが出ている場合警告アイコンを出す
+    if (villageList[i].error != "") {
+       postText += "&nbsp<b><span id='" + id + "err' title='" + villageList[i].error + "' class='errorinfo'>！</span></b>";
+    }
+
     j$("#villageList").append(
       "<tr><td><input type=checkbox id=" + id + ">" + 
         "<span id='label_" + id + "'" + addClass + ">" + villageList[i].name + "</span>" +
@@ -601,7 +677,7 @@ function drawVillageWindow() {
       "</td></tr>"
     );
 
-    var data = [id, villageList[i].name, villageList[i].x, villageList[i].y];
+    var data = [id, villageList[i].name, villageList[i].x, villageList[i].y, villageList[i].error];
     j$("#label_" + id).bind("click", data,
       function(data){
         // 情報設定
@@ -610,6 +686,7 @@ function drawVillageWindow() {
         j$("#villageName").text(data.data[1]);    // 拠点名
         j$("#villageX").text(data.data[2]);       // 座標X
         j$("#villageY").text(data.data[3]);       // 座標Y
+        j$("#villageListId").text(data.data[0]);  // 一覧アクセス用のid
         j$("#villageDefault").text();             // デフォルトではない
 
         // 設定済み情報があれば書き戻す
@@ -630,6 +707,11 @@ function drawVillageWindow() {
           j$("#baseVillage").text("");
           j$("#" + CO_LABO).attr("disabled", "");
           j$("label", j$("#" + CO_LABO).parent()).css("text-decoration", "line-through");
+        }
+
+        // エラーの場合は警告を表示
+        if (data.data[4] != "") {
+          j$("#errorInfo").text(data.data[4]);
         }
 
         // 選択された拠点が現拠点でない場合シミュレーションボタンは押せない
@@ -688,8 +770,10 @@ function drawSettingWindow() {
       <div class=builderheader> \
         <span id=villageName>オートビルダー設定画面</span> \
         <span id=baseVillage></span> \
+        &nbsp;<span id=errorInfo class='errorinfo'></span> \
         <span id=villageX class='hidden'></span>\
         <span id=villageY class='hidden'></span>\
+        <span id=villageListId class='hidden'></span> \
         <span id=villageDefault class='hidden'></span>\
       </div> \
       <ul id=tabs class=buildertabs> \
@@ -704,12 +788,19 @@ function drawSettingWindow() {
 
   j$("#optionSaveButton").bind('click',
     function() {
+      // 設定オプションの保存
       var options = getBuilderOptions();
       if (j$("#villageDefault").text() == "") {
           saveVillageSettings(j$("#villageX").text(), j$("#villageY").text(), options);
       } else {
           saveNamedVillageSettings("default", options);
       }
+
+      // 保存時にエラーメッセージを初期化する
+      var villageListId = j$("#villageListId").text();
+      setBuildError(j$("#villageX").text(), j$("#villageY").text(), "");
+      j$("#" + villageListId + "err").text("")
+
       alert("保存しました");
       j$("#settingWindow").css("display", "none");
     }
@@ -900,6 +991,7 @@ function generateCommand(command) {
   if (typeof command == 'undefined') {
     return [];
   }
+/*
   // 施設別レベル
   var levelLimit = getLevelupLimit();
   var multiple = getMultipleBuild();
@@ -996,7 +1088,7 @@ function generateCommand(command) {
   } else {
     throw "解釈できない命令\n[" + command + "]";
   }
-
+*/
   return buildCommand;
 }
 
@@ -1765,6 +1857,7 @@ function getCreateTarget(target) {
       data['food'] = g_villageMap[x][y].food;
       data['blank'] = g_villageMap[x][y].blank;
       data['resources'] = g_villageMap[x][y].resources;
+      data['h-resources'] = data['forest'] + data['stone'] + data['iron'];
       sorts[sorts.length] = data;
     }
   }
@@ -1773,24 +1866,38 @@ function getCreateTarget(target) {
   }
   sorts.sort(
     function(a,b){
+      var prior = '';
       if (target.construction == '伐採所') {
-        return b['forest'] - a['forest'];
+        prior = 'forest';
       }
       if (target.construction == '石切り場') {
-        return b['stone'] - a['stone'];
+        prior = 'stone';
       }
       if (target.construction == '製鉄所') {
-        return b['iron'] - a['iron'];
+        prior = 'iron';
       }
       if (target.construction == '水車') {
+        prior = 'food';
         return b['food'] - a['food'];
       }
-      if (a['blank'] != b['blank']) {
-        return a['blank'] - b['blank'];
+      // パネルの隣接を優先
+      if (prior != '') {
+         if (a[prior] != b[prior]) {
+           return b[prior] - a[prior];
+         }
       }
-      return a['resources'] - b['resources'];
+      // 優先パネルを必要としない施設は、隣接資源パネルの少ないところに建てる
+      if (a['h-resources'] != b['h-resources']) {
+        return a['h-resources'] - b['h-resources'];   // 森、岩山、鉄鉱山のないところを優先
+      }
+      if (a['resources'] != b['resources']) {
+        return a['resources'] - b['resources'];
+      }
+      // 隣接資源が一致する場合、空き地の多い順に建てる
+      return a['blank'] - b['blank'];
     }
   );
+  console.log(JSON.stringify(sorts));
 
   // 建設施設を埋める
   var x = sorts[0]['x'];
@@ -2127,6 +2234,12 @@ function VillageObject(vId, vName, vPosX, vPosY) {
     this.x = villageInfo.x;                       // 拠点x座標
     this.y = villageInfo.y;                       // 拠点y座標
     this.hasMarket = villageInfo.hasMarket;       // 市場有無
+    // 巡回時間(修正対策)
+    if (typeof villageInfo.patrolTime == "undefined") {
+      this.patrolTime = null;
+    } else {
+      this.patrolTime = villageInfo.patrolTime;
+    }
     this.restTime = villageInfo.restTime;         // 建設中施設完了までの秒数(null=建設なし)
     this.lastNewBuild = villageInfo.lastNewBuild; // 新規建設をかけた場合、その情報が入る
     this.roundgo = villageInfo.roundgo;           // 巡回許可
@@ -2138,6 +2251,7 @@ function VillageObject(vId, vName, vPosX, vPosY) {
     this.x = vPosX;                               // 拠点x座標
     this.y = vPosY;                               // 拠点y座標
     this.hasMarket = false;                       // 市場有無
+    this.patrolTime = null;                       // 巡回時間
     this.restTime = null;                         // 建設中施設完了までの秒数(null=建設なし)
     this.lastNewBuild = null;                     // 新規建設をかけた場合、その情報が入る
     this.roundgo = false;                         // 巡回許可
@@ -2566,6 +2680,9 @@ function addBuilderCss() {
     div.villagesubmenu { \
       margin-left: 2px; background-color: #030; color: white; font-size:12px; \
       position: relative; top:10px; left:10px; width: 150px !important; \
+    } \
+    span.errorinfo { \
+      font-weight: bold; background-color: red; \
     } \
     table.villagelist { \
       border:outset 2px white; margin:6px; border-collapse:separate; border-spacing:4px 1px; \
@@ -3212,7 +3329,7 @@ function convertConstructionIdToName(iconId){
 //----------------//
 // 施設番号対応表 //
 //----------------//
-function getConstrutionNumber() {
+function getConstructionNumber(construction = null) {
   // 建設番号はアイコンチップ番号と同じ
   var numbers = {
     '伐採所':209, '石切り場':211, '製鉄所':213, '畑':215,        '銅雀台':216,   '市場':217,
@@ -3221,7 +3338,10 @@ function getConstrutionNumber() {
     '宿舎':242,   '見張り台':243, '大宿舎':244, '遠征訓練所':246,
     '城':205,     '村':220,       '砦':222
   };
-  return numbers;
+  if(construction != null && typeof numbers[construction] == 'undefined'){
+    return null;
+  }
+  return numbers[construction];
 }
 
 //------------------//
