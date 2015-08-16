@@ -4,7 +4,7 @@
 // @include      http://*.3gokushi.jp/user/*
 // @include      http://*.3gokushi.jp/village.php*
 // @description  ブラウザ三国志オートビルダー by Craford
-// @version      0.01
+// @version      0.02
 
 // @grant   GM_addStyle
 // @grant   GM_deleteValue
@@ -30,7 +30,10 @@ initGMWrapper();
 // 変数定義 //
 //----------//
 // ソフトウェアバージョン
-var VERSION = "0.01";
+var VERSION = "0.02";
+
+// インストール直後から設定なしで自動的に本拠地での巡回を開始するか
+var AUTO_START = true;
 
 // 拠点データ取り扱い用変数
 var g_villageMap = [];
@@ -42,7 +45,7 @@ var g_lastBuild;  // シミュレーター用
 var HOST = location.hostname;        // アクセスURLホスト
 var SERVICE = '';              // サービス判定が必要な場合に使用する予約定数
 var SVNAME = HOST.substr(0,location.hostname.indexOf(".")) + SERVICE;
-var GM_KEY = "AB21_" + HOST.substr(0,HOST.indexOf("."));
+var GM_KEY = "AB202_" + HOST.substr(0,HOST.indexOf("."));
 
 //--------------------//
 // ビルダー処理用定数 //
@@ -77,12 +80,12 @@ var TL_L_LODGE   = 'tl10';     // 大宿舎
 var TL_W_TOWER   = 'tl11';     // 見張り台
 var TL_SYMBOL    = 'tl12';     // 銅雀台
 var TL_IRON      = 'tl13';     // 製鉄所
-var TL_BALLACK   = 'tl13';     // 兵舎
-var TL_W_SMITHY  = 'tl14';     // 鍛冶場
-var TL_W_WHEEL   = 'tl15';     // 水車
-var TL_FOOD      = 'tl16';     // 畑
-var TL_B_BALLACK = 'tl17';     // 弓兵舎
-var TL_A_SMITHY  = 'tl18';     // 防具工場
+var TL_BALLACK   = 'tl14';     // 兵舎
+var TL_W_SMITHY  = 'tl15';     // 鍛冶場
+var TL_W_WHEEL   = 'tl16';     // 水車
+var TL_FOOD      = 'tl17';     // 畑
+var TL_B_BALLACK = 'tl18';     // 弓兵舎
+var TL_A_SMITHY  = 'tl19';     // 防具工場
 var TL_FACTORY   = 'tl20';     // 工場
 var TL_STORAGE   = 'tl21';     // 倉庫
 var TL_STABLE    = 'tl22';     // 厩舎
@@ -251,7 +254,7 @@ function saveUserProfile(targetObject){
   }
 
   // 拠点一覧の取得
-  var VillageList = [];
+  var villageList = [];
   j$("table[class=commonTables] tr:has(a[href*='village_change.php'])", target).slice(0,10).each(
     // 拠点情報を持つ行のみ処理対象
     function() {
@@ -272,27 +275,32 @@ function saveUserProfile(targetObject){
           } else if (index == 2) {
             // 人口エリアに記述がある場合のみ拠点情報をpush
             if (j$(this).text().trim() != "" && vId != null && vPosX != null && vPosY != null) {
-              VillageList.push(new VillageObject(vId, vName, vPosX, vPosY));
+              villageList.push(new VillageObject(vId, vName, vPosX, vPosY));
             }
           }
         }
       );
     }
   );
-
-  if (VillageList.length == 0) {
+  if (villageList.length == 0) {
     alert("プロフィールページの仕様が変更されたため情報が取れませんでした。");
     return;
   }
 
+  var savedVillageList = loadVillageList();    // 保存された拠点情報
+  if (savedVillageList.length == 0 && AUTO_START == true) {
+    villageList[0].roundgo = true;
+  }
+
   // 拠点情報の保存
-  saveVillageList(VillageList);
+  saveVillageList(villageList);
 }
 
 //----------------//
 // オートビルダー //
 //----------------//
 function autobuilder() {
+
   // 現在の拠点座標を取得
   var basePos = getBasePosition();
 
@@ -308,6 +316,14 @@ function autobuilder() {
   if (foundIdx == -1) {
     autopatrol();   // 自動巡回処理
     return;
+  }
+
+  // 自動スキル発動
+  if (j$("#soldier_unit dl.large").length > 0) {  // 配置武将が存在
+    if (j$("div.base-skill").text().match(/\n--\n/) == null) {
+      // スキル未発動内政官がいる
+      autoExecSkill(villageList[foundIdx]);
+    }
   }
 
   // マップデータの読み込み
@@ -393,6 +409,12 @@ function autobuilder() {
   }
 }
 
+//--------------//
+// 自動内政発動 //
+//--------------//
+function autoExecSkill(villageInfo) {
+}
+
 //----------------------------//
 // 施設建設またはレベルアップ //
 //----------------------------//
@@ -430,9 +452,6 @@ function buildConstruction(villageInfo, params) {
 // 自動巡回 //
 //----------//
 function autopatrol() {
-  if (loadValue("autoPatrol") == false) {
-    return;
-  }
   var villageList = loadVillageList();    // 保存された拠点情報
   var time = 2147483647;    // 2^32 - 1
   var pos = -1;
@@ -510,15 +529,7 @@ function drawBuilderSettingButton() {
     function(){
       var villageList = loadVillageList();
       if (villageList.length == 0) {
-/*
-        j$("#CBVTable").append(
-          "<tr><td style='font-size:12px;'>" + 
-          "ツールのご利用ありがとうございます。<br>" +
-          "プロフィールページにアクセスして<br>" +
-          "拠点情報の読み込みを行ってください。" +
-          "</td></tr>"
-        );
-*/
+        alert("ご利用ありがとうございます。\nプロフィールページにアクセスして、拠点情報の読み込みを行ってください。");
       } else {
         // 巡回設定の反映
         var settings = getVillageListSettings();
@@ -533,9 +544,7 @@ function drawBuilderSettingButton() {
         // 拠点一覧自動更新の設定
         j$("#al").prop('checked', loadValue("autoRefresh"));
 
-        // 自動巡回設定
-        j$("#ar").prop('checked', loadValue("autoPatrol"));
-
+        // 拠点リスト表示
         j$("#villageWindow").css("display", "block");
       }
     }
@@ -566,7 +575,7 @@ function drawVillageWindow() {
   j$("#mapboxInner").children().append("\
     <div id=villageWindow class=villageWindow> \
       <div class=villageheader> \
-        <span>AutoBuilder Ver.0.01</span> \
+        <span>AutoBuilder Ver.0.02</span> \
       </div> \
       <div class=villagelistheader> \
         <span>対象拠点一覧</span> \
@@ -575,7 +584,6 @@ function drawVillageWindow() {
       </table> \
       <div class=villagesubmenu> \
         <div><input type=checkbox id=al><label for=v1 class=highlight>拠点リストを自動で最新化</label></div> \
-        <div><input type=checkbox id=ar><label for=v1>自動巡回</label></div> \
       </div> \
       <input id=builderSave class=saveButton type=button value='保存'> \
       <input id=builderClose class=closeButton type=button value='閉じる'> \
@@ -593,12 +601,12 @@ function drawVillageWindow() {
           }
         }
       }
+
       // 拠点一覧
       saveVillageList(villageList);
+
       // 拠点一覧自動更新
       saveValue("autoRefresh", j$("#al").prop('checked'));
-      // 自動巡回設定
-      saveValue("autoPatrol", j$("#ar").prop('checked'));
 
       alert("保存しました");
       j$("#settingWindow").css("display", "none");
@@ -630,7 +638,7 @@ function drawVillageWindow() {
   }
 
   // 拠点リストの再読み込みを行うかどうか
-  if (1) {
+  if (loadValue("autoRefresh") == true) {
     var hasUnavailable = false;
     for (var i = 0; i < villageList.length; i++) {
       if (villageList[i].available == false) {
@@ -640,7 +648,16 @@ function drawVillageWindow() {
     }
     if (villageList.length !== nowVillageList.length || hasUnavailable == true) {
       // プロフィールをとりなおす
-//      alert("拠点リストがずれてます！");
+      callRequest(
+        "GET",
+        "/user",
+        null,
+        function(responseText){
+          var obj = j$("<div>").append(responseText);
+          saveUserProfile(obj);
+          location.reload();
+        }
+      );
     }
   }
 
@@ -669,9 +686,11 @@ function drawVillageWindow() {
 
     j$("#villageList").append(
       "<tr><td><input type=checkbox id=" + id + ">" + 
+        "<span style='margin-left:4px;'>" +
         "<span id='label_" + id + "'" + addClass + ">" + villageList[i].name + "</span>" +
         "<span id='v_x' style='display:none;'>" + villageList[i].x + "</span>" +
         "<span id='v_y' style='display:none;'>" + villageList[i].y + "</span>" +
+//        "<span id='m_" + id + "' style='margin-left: 4px; width: 10px;'>[市]</span>" +
         "<span id='now_" + id + "' style='display:none;'>" + now + "</span>" +
         postText +
       "</td></tr>"
@@ -688,6 +707,7 @@ function drawVillageWindow() {
         j$("#villageY").text(data.data[3]);       // 座標Y
         j$("#villageListId").text(data.data[0]);  // 一覧アクセス用のid
         j$("#villageDefault").text();             // デフォルトではない
+        j$("#optionDefaultSaveButton").css("display", "block");
 
         // 設定済み情報があれば書き戻す
         var options = loadVillageSettings(data.data[2], data.data[3]);
@@ -729,9 +749,11 @@ function drawVillageWindow() {
     );
   }
 
-  // 初期値設定
+  // 初期値、市場設定
   j$("#villageList").append(
-    "<tr><td>&nbsp;</td></tr><tr><td><span id='vdefault' class='villagename'>※ 初期値設定 ※</span></td></tr>"
+    "<tr><td style='height: 4px;'></td></tr>" +
+    "<tr><td><span id='vdefault' class='villagename'>※ 拠点初期値設定 ※</span></td></tr>"
+//    "<tr><td><span id='vmarket' class='villagename'>※ 資源設定 ※</span></td></tr>"
   );
   j$("#vdefault").bind("click",
     function(){
@@ -742,6 +764,7 @@ function drawVillageWindow() {
       j$("#villageX").text("0");       // 座標X
       j$("#villageY").text("0");       // 座標Y
       j$("#villageDefault").text("1"); // 初期設定
+      j$("#optionDefaultSaveButton").css("display", "none");
 
       // 設定値を書き戻す
       var options = loadVillageSettings("default");
@@ -759,6 +782,7 @@ function drawVillageWindow() {
       j$("#settingWindow").css("display", "block");
     }
   );
+
 }
 
 //----------------//
@@ -782,6 +806,7 @@ function drawSettingWindow() {
       </div> \
       <input id=optionSaveButton class=builderbutton type=button value='保存する'> \
       <input id=optionDefaultSaveButton class=builderbuttonRight type=button value='初期設定値として保存する'> \
+      <input id=optionInitButton class=builderbuttonRight type=button value='ビルダー初期値にリセットする'> \
       <input id=optionCloseButton class=builderbutton type=button value='閉じる'> \
     </div> \
   ");
@@ -812,6 +837,19 @@ function drawSettingWindow() {
       saveNamedVillageSettings("default", options);
       alert("保存しました");
       j$("#settingWindow").css("display", "none");
+    }
+  );
+
+  j$("#optionCloseButton").bind('click',
+    function() {
+      j$("#settingWindow").css("display", "none");
+    }
+  );
+
+  j$("#optionInitButton").bind('click',
+    function() {
+      initOptions();
+      alert("ビルダー初期値に設定を戻しました");
     }
   );
 
@@ -855,7 +893,7 @@ function drawSettingWindow() {
   j$("#body_tab1").append("<div class=contentsheader>建設 - 施設建造上限レベルの設定</div>");
   obj = drawTabTableContents(settings.contents['tab1']);
   j$("#body_tab1").append(obj);
-  j$("#body_tab1").append("<input type=button id=execSimulator1 class=lbutton value=建設シミュレーターを開く>&nbsp;<span>(現在の拠点以外では使用できません)</span>");
+  j$("#body_tab1").append("<input type=button id=execSimulator1 class=lbutton value='建設シミュレーターを開く'>");
   j$("#execSimulator1").bind('click',
     function() {
       // シミュレーター画面を開く
@@ -870,8 +908,8 @@ function drawSettingWindow() {
   j$("#body_tab2").append("<div class=contentsheader>個別建設設定（糧村化、倉庫村化指定時は本設定は無視されます）</div>");
   obj = drawTabTableContents(settings.contents['tab2-2']);
   j$("#body_tab2").append(obj);
+  j$("#body_tab2").append("<input type=button id=execSimulator2 class=lbutton value='建設シミュレーターを開く'>");
   j$("#body_tab2").append("<span class=float-right><input type=checkbox id=" + CO_OFF +"><label for=v1>上記建設設定を無効にする</label></td></span>");
-  j$("#body_tab2").append("<input type=button id=execSimulator2 class=lbutton value=建設シミュレーターを開く>&nbsp;<span>(現在の拠点以外では使用できません)</span>");
   j$("#execSimulator2").bind('click',
     function() {
       // シミュレーター画面を開く
@@ -880,11 +918,12 @@ function drawSettingWindow() {
   );
 
   // 建設[カスタム]
+/*
   j$("#body_tab3").append("<div class=contentsheader>建設 - 指定されたルールで拠点を作成</div>");
   j$("#body_tab3").append("<textarea id=customBox class=customBox value='' >");
   j$("#body_tab3").append("<input type=button id=analyze class=analyzeButton value=チェック＆コマンド分析>");
   j$("#body_tab3").append("<textarea id=analyzeBox class=analyzeBox readonly value='' >");
-  j$("#body_tab3").append("<input type=button id=execSimulator3 class=lbutton2 value=建設シミュレーターを開く>&nbsp;<span>(現在の拠点以外では使用できません)</span>");
+  j$("#body_tab3").append("<div><input type=button id=execSimulator3 class=lbutton2 value='建設シミュレーターを開く'></div>");
   j$("#body_tab3").append("<span class=float-right><input type=checkbox id=" + CC_OFF +"><label for=v1>上記建設設定を無効にする</label></td></span>");
   j$("#analyze").bind('click',
     function() {
@@ -914,7 +953,7 @@ function drawSettingWindow() {
       <span class=float-right><input type=checkbox id=" + CA_OFF + "><label for=v1>上記内政設定を無効にする</label></td></span> \
     </div>"
   );
-
+*/
   //--------------------------------------------------
   // 初期値が保存されていなければ初期設定値を保存する
   //--------------------------------------------------
@@ -926,6 +965,31 @@ function drawSettingWindow() {
   if (loadNamedVillageSettings("default") == "") {
       var options = getBuilderOptions();
       saveNamedVillageSettings("default", options);
+  }
+}
+
+//----------------------------//
+// オプションを初期状態に戻す //
+//----------------------------//
+function initOptions() {
+  var settings = getSettingViewContents();
+  var count = 0;
+  for (tabid in settings.contents) {
+    for (var i = 0; i < settings.contents[tabid].length; i++) {
+      for (var j = 0; j < settings.contents[tabid][i].length; j++) {
+        for (var k = 0; k < settings.contents[tabid][i][j].length; k++) {
+          var type = settings.contents[tabid][i][j][k][0];
+          var id = settings.contents[tabid][i][j][k][1];
+          var text = settings.contents[tabid][i][j][k][2];
+          if (type == TYPE_CHECKBOX) {
+            // チェックボックス
+            j$("#" + id).prop('checked', false);  // チェックはすべてリセット
+          } else if (type == TYPE_INPUT) {
+            j$("#" + id).val(text);
+          }
+        }
+      }
+    }
   }
 }
 
@@ -2234,12 +2298,7 @@ function VillageObject(vId, vName, vPosX, vPosY) {
     this.x = villageInfo.x;                       // 拠点x座標
     this.y = villageInfo.y;                       // 拠点y座標
     this.hasMarket = villageInfo.hasMarket;       // 市場有無
-    // 巡回時間(修正対策)
-    if (typeof villageInfo.patrolTime == "undefined") {
-      this.patrolTime = null;
-    } else {
-      this.patrolTime = villageInfo.patrolTime;
-    }
+    this.patrolTime = villageInfo.patrolTime;     // 巡回時間
     this.restTime = villageInfo.restTime;         // 建設中施設完了までの秒数(null=建設なし)
     this.lastNewBuild = villageInfo.lastNewBuild; // 新規建設をかけた場合、その情報が入る
     this.roundgo = villageInfo.roundgo;           // 巡回許可
@@ -2457,10 +2516,10 @@ function getResources(isSimulate) {
 function getSettingViewContents() {
   var tabSettings = {
     'tab1':'建設設定[基本]',
-    'tab2':'建設設定[拡張]',
-    'tab3':'建設設定[カスタム]',
-    'tab4':'内政設定',
-    'tab5':'市場設定'
+    'tab2':'建設設定[拡張]'
+//    'tab3':'建設設定[カスタム]',
+//    'tab4':'内政設定',
+//    'tab5':'市場設定'
   };
 
   // 各種設定
@@ -2468,39 +2527,39 @@ function getSettingViewContents() {
     // 建設施設リスト
     'tab1': [
       [
-        [[TYPE_LABEL, '', '拠点　　　'], [TYPE_INPUT, TL_BASE,      20]],
-        [[TYPE_LABEL, '', '練兵所　　'], [TYPE_INPUT, TL_PARADE,    10]],
-        [[TYPE_LABEL, '', '訓練所　　'], [TYPE_INPUT, TL_TRAINING,  10]],
-        [[TYPE_LABEL, '', '市場　　　'], [TYPE_INPUT, TL_MARKET,    10]],
+        [[TYPE_LABEL, '', '拠点　　　'], [TYPE_INPUT, TL_BASE,       1]],
+        [[TYPE_LABEL, '', '練兵所　　'], [TYPE_INPUT, TL_PARADE,     1]],
+        [[TYPE_LABEL, '', '訓練所　　'], [TYPE_INPUT, TL_TRAINING,   1]],
+        [[TYPE_LABEL, '', '市場　　　'], [TYPE_INPUT, TL_MARKET,     1]],
       ],
       [
         [[TYPE_LABEL, '', '伐採所　　'], [TYPE_INPUT, TL_WOOD,      15]],
-        [[TYPE_LABEL, '', '宿舎　　　'], [TYPE_INPUT, TL_LODGE,     15]],
-        [[TYPE_LABEL, '', '遠征訓練所'], [TYPE_INPUT, TL_EXPEDITE,  20]],
-        [[TYPE_LABEL, '', '研究所　　'], [TYPE_INPUT, TL_LABO,      10]],
+        [[TYPE_LABEL, '', '宿舎　　　'], [TYPE_INPUT, TL_LODGE,      1]],
+        [[TYPE_LABEL, '', '遠征訓練所'], [TYPE_INPUT, TL_EXPEDITE,   1]],
+        [[TYPE_LABEL, '', '研究所　　'], [TYPE_INPUT, TL_LABO,       1]],
       ],
       [
         [[TYPE_LABEL, '', '石切り場　'], [TYPE_INPUT, TL_STONE,     15]],
-        [[TYPE_LABEL, '', '大宿舎　　'], [TYPE_INPUT, TL_L_LODGE,   20]],
-        [[TYPE_LABEL, '', '見張り台　'], [TYPE_INPUT, TL_W_TOWER,   20]],
-        [[TYPE_LABEL, '', '銅雀台　　'], [TYPE_INPUT, TL_SYMBOL,    10]],
+        [[TYPE_LABEL, '', '大宿舎　　'], [TYPE_INPUT, TL_L_LODGE,    1]],
+        [[TYPE_LABEL, '', '見張り台　'], [TYPE_INPUT, TL_W_TOWER,    1]],
+        [[TYPE_LABEL, '', '銅雀台　　'], [TYPE_INPUT, TL_SYMBOL,     1]],
       ],
       [
         [[TYPE_LABEL, '', '製鉄所　　'], [TYPE_INPUT, TL_IRON,      15]],
-        [[TYPE_LABEL, '', '兵舎　　　'], [TYPE_INPUT, TL_BALLACK,   15]],
-        [[TYPE_LABEL, '', '鍛冶場　　'], [TYPE_INPUT, TL_W_SMITHY,  10]],
-        [[TYPE_LABEL, '', '水車　　　'], [TYPE_INPUT, TL_W_WHEEL,   10]],
+        [[TYPE_LABEL, '', '兵舎　　　'], [TYPE_INPUT, TL_BALLACK,    1]],
+        [[TYPE_LABEL, '', '鍛冶場　　'], [TYPE_INPUT, TL_W_SMITHY,   1]],
+        [[TYPE_LABEL, '', '水車　　　'], [TYPE_INPUT, TL_W_WHEEL,    1]],
       ],
       [
         [[TYPE_LABEL, '', '畑　　　　'], [TYPE_INPUT, TL_FOOD,      15]],
-        [[TYPE_LABEL, '', '弓兵舎　　'], [TYPE_INPUT, TL_B_BALLACK, 15]],
-        [[TYPE_LABEL, '', '防具工場　'], [TYPE_INPUT, TL_A_SMITHY,  10]],
-        [[TYPE_LABEL, '', '工場　　　'], [TYPE_INPUT, TL_FACTORY,   10]],
+        [[TYPE_LABEL, '', '弓兵舎　　'], [TYPE_INPUT, TL_B_BALLACK,  1]],
+        [[TYPE_LABEL, '', '防具工場　'], [TYPE_INPUT, TL_A_SMITHY,   1]],
+        [[TYPE_LABEL, '', '工場　　　'], [TYPE_INPUT, TL_FACTORY,    1]],
       ],
       [
-        [[TYPE_LABEL, '', '倉庫　　　'], [TYPE_INPUT, TL_STORAGE,   20]],
-        [[TYPE_LABEL, '', '厩舎　　　'], [TYPE_INPUT, TL_STABLE,    15]],
-        [[TYPE_LABEL, '', '兵器工房　'], [TYPE_INPUT, TL_WEAPON,    15]],
+        [[TYPE_LABEL, '', '倉庫　　　'], [TYPE_INPUT, TL_STORAGE,    1]],
+        [[TYPE_LABEL, '', '厩舎　　　'], [TYPE_INPUT, TL_STABLE,     1]],
+        [[TYPE_LABEL, '', '兵器工房　'], [TYPE_INPUT, TL_WEAPON,     1]],
       ],
     ],
     // 建設オプション
@@ -2550,9 +2609,10 @@ function getSettingViewContents() {
         [[TYPE_CHECKBOX, CO_FACTORY,   '工場　　　'], [TYPE_BLANK, '', '']],
         [[TYPE_CHECKBOX, CO_W_WHEEL,   '水車　　　'], [TYPE_BLANK, '', '']],
       ],
-    ],
+    ]
     // 内政スキルリスト
-    'tab4': [
+    /*
+    ,'tab4': [
       [
         [[TYPE_LABEL, '', '一種資源増加']],
       ],
@@ -2620,6 +2680,7 @@ function getSettingViewContents() {
         ],
       ],
     ]
+    */
   };
 
   return {'tabs':tabSettings, 'contents':tables};
@@ -2668,7 +2729,7 @@ function addBuilderCss() {
       background-color: #030; border: outset 2px white; \
       font-size: 12px; padding: 2px; \
       position: absolute; left: 5px; top: 10px; \
-      align: center; width: 190px; height: 340px; z-index: 200; \
+      align: center; width: 210px; height: 340px; z-index: 200; \
     } \
     div.villageheader { \
       margin-left: 2px; font-weight: bold; background-color: #030; color: yellow; font-size:14px; \
@@ -2699,7 +2760,6 @@ function addBuilderCss() {
       -moz-user-select: none; -webkit-user-select: none; user-select: none; \
     } \
     .villageWindow span.villagename { \
-      margin-left: 4px; \
       -moz-user-select: none; -webkit-user-select: none; user-select: none; \
       text-decoration: underline; \
       cursor: pointer; \
