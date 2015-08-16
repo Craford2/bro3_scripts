@@ -4,7 +4,7 @@
 // @include      http://*.3gokushi.jp/user/*
 // @include      http://*.3gokushi.jp/village.php*
 // @description  ブラウザ三国志オートビルダー by Craford
-// @version      0.02
+// @version      0.03
 
 // @grant   GM_addStyle
 // @grant   GM_deleteValue
@@ -30,7 +30,7 @@ initGMWrapper();
 // 変数定義 //
 //----------//
 // ソフトウェアバージョン
-var VERSION = "0.02";
+var VERSION = "0.03";
 
 // インストール直後から設定なしで自動的に本拠地での巡回を開始するか
 var AUTO_START = true;
@@ -358,6 +358,10 @@ function autobuilder() {
 
   // 次の建設計画の取得
   var options = loadVillageSettings(basePos.x, basePos.y);
+  if( options == "" ) {
+      // 設定値がなければデフォルト値を使う
+      options = loadNamedVillageSettings("default");
+  }
   var next = getNextBuildTarget(options, isBase(), false);
   if (next == null) {
     autopatrol();  // 自動巡回処理
