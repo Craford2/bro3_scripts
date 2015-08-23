@@ -4,7 +4,7 @@
 // @include      http://*.3gokushi.jp/user/*
 // @include      http://*.3gokushi.jp/village.php*
 // @description  ブラウザ三国志オートビルダー by Craford
-// @version      0.03
+// @version      0.04
 
 // @grant   GM_addStyle
 // @grant   GM_deleteValue
@@ -18,6 +18,7 @@
 // ==/UserScript==
 // version date       author
 // 0.01    2014/12/27 jquery1.11.1ベースで作成開始
+// 0.04    2015/08/23 内政短縮100%スキルでもビルダーが停止しないようにする対応を追加
 
 // load jQuery
 jQuery.noConflict();
@@ -30,7 +31,7 @@ initGMWrapper();
 // 変数定義 //
 //----------//
 // ソフトウェアバージョン
-var VERSION = "0.03";
+var VERSION = "0.04";
 
 // インストール直後から設定なしで自動的に本拠地での巡回を開始するか
 var AUTO_START = true;
@@ -433,18 +434,37 @@ function buildConstruction(villageInfo, params) {
     data = "ssid=" + getSessionId() + "&x=" + params.target.x + "&y=" + params.target.y + "&village_id=" + villageInfo.id;
   }
 
+  if (params.target.construction == 'undefined') {
+    setBuildError(villageInfo.x, villageInfo.y, "建設対象の取得に失敗しました");
+    location.reload();
+    return;
+  }
+
   // 建設実行
   setBuildError(villageInfo.x, villageInfo.y, "建設中：" + params.target.construcion);  // 情報を入れることで万一の暴走阻止
+
+  // 建設施設の情報をいれる(設定した情報は現在未使用)
+  setBuildInfo(villageInfo.x, villageInfo.y, params.target);
+
   callRequest(
     "POST",
     "/facility/build.php",
     data,
     function(responseText, params){
+        var obj = j$("<div>").append(responseText);
+        collectVillageMap(obj);
       if (responseText.match(/建設中/)) {
         setBuildError(params.x, params.y, "");
       } else {
-        // 建設失敗の場合、失敗理由を設定
-        setBuildError(params.x, params.y, params.target.construcion + "の建設に失敗しました");
+        // 建設施設がないばあい、マップデータを回収し、施設の建設が成功している可能性を判定する（100%短縮スキル対応）
+        var obj = j$("<div>").append(responseText);
+        collectVillageMap(obj);
+        if (g_villageMap[params.target.x][params.target.y].construction != params.target.construction
+            || g_villageMap[params.target.x][params.target.y].level != params.target.level + 1) {
+
+          // 建設失敗の場合、失敗理由を設定
+          setBuildError(params.x, params.y, params.target.construcion + "の建設に失敗しました");
+        }
       }
       location.reload();
     },
@@ -488,6 +508,22 @@ function autopatrol() {
     },
     nextPatrol * 1000
   );
+}
+
+//------------------------------//
+// ビルダーが建設中の施設の設定 //
+//------------------------------//
+function setBuildInfo(x, y, params) {
+  var villageList = loadVillageList();    // 保存された拠点情報
+  var foundIdx = -1;
+  for (var i = 0; i < villageList.length; i++) {
+    if (villageList[i].x == x && villageList[i].y == y) {
+      villageList[i].lastNewBuild = params;
+    }
+  }
+
+  // 建設情報を更新
+  saveVillageList(villageList);
 }
 
 //----------------------------//
@@ -579,7 +615,7 @@ function drawVillageWindow() {
   j$("#mapboxInner").children().append("\
     <div id=villageWindow class=villageWindow> \
       <div class=villageheader> \
-        <span>AutoBuilder Ver.0.02</span> \
+        <span>AutoBuilder Ver.0.04</span> \
       </div> \
       <div class=villagelistheader> \
         <span>対象拠点一覧</span> \
@@ -961,11 +997,6 @@ function drawSettingWindow() {
   //--------------------------------------------------
   // 初期値が保存されていなければ初期設定値を保存する
   //--------------------------------------------------
-  if (loadNamedVillageSettings("init") == "") {
-      var options = getBuilderOptions();
-      saveNamedVillageSettings("init", options);
-  }
-
   if (loadNamedVillageSettings("default") == "") {
       var options = getBuilderOptions();
       saveNamedVillageSettings("default", options);
@@ -1965,7 +1996,6 @@ function getCreateTarget(target) {
       return a['blank'] - b['blank'];
     }
   );
-  console.log(JSON.stringify(sorts));
 
   // 建設施設を埋める
   var x = sorts[0]['x'];
@@ -1991,7 +2021,13 @@ function getLevelupTarget(target) {
 //--------------------------//
 // マップデータ読み込み     //
 //--------------------------//
-function collectVillageMap() {
+function collectVillageMap(targetObject) {
+  // 検索ターゲットの決定
+  var target = null;
+  if (typeof targetObject != 'undefined') {
+    target = targetObject;
+  }
+
   // 拠点施設リストの作成
   var mapData = [];
   for( var x = 0; x < 7; x++ ){
@@ -2012,7 +2048,7 @@ function collectVillageMap() {
   }
 
   // マップチップから現在レベル、施設名を取得
-  j$("#maps img[class*='map']").each(
+  j$("#maps img[class*='map']", target).each(
     function() {
       var className = j$(this).attr("class");
       var mapIcon = false;
@@ -2030,7 +2066,7 @@ function collectVillageMap() {
       } else {
         if (mapIcon == true) {
           // なんらかの理由でレベルが取れない場合、mapiconクラス側からとる
-          var area = j$("#mapOverlayMap area[href*='x=" + x + "&y=" + y + "']");
+          var area = j$("#mapOverlayMap area[href*='x=" + x + "&y=" + y + "']", target);
           if (j$(area).length > 0) {
             var findLv = j$(area).attr("title").match(/L[Vv].(\d+)/);
             if (findLv != null) {
@@ -2050,7 +2086,7 @@ function collectVillageMap() {
 
   // 建設、削除中施設の情報を取得
   var buildList = [];
-  j$("#actionLog ul li").each(
+  j$("#actionLog ul li", target).each(
     function() {
       // 建設ステータスの取得
       var statusText = j$("span[class='buildStatus']", this).parent().text();
