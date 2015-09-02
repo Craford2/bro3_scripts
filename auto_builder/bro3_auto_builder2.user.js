@@ -4,7 +4,7 @@
 // @include      http://*.3gokushi.jp/user/*
 // @include      http://*.3gokushi.jp/village.php*
 // @description  ブラウザ三国志オートビルダー by Craford
-// @version      0.04
+// @version      0.05
 
 // @grant   GM_addStyle
 // @grant   GM_deleteValue
@@ -19,6 +19,7 @@
 // version date       author
 // 0.01    2014/12/27 jquery1.11.1ベースで作成開始
 // 0.04    2015/08/23 内政短縮100%スキルでもビルダーが停止しないようにする対応を追加
+// 0.05    2015/09/03 建設中：undefined対応、削除中施設があるときにレベルアップ失敗で止まる対応、巡回タイマー表示
 
 // load jQuery
 jQuery.noConflict();
@@ -31,7 +32,7 @@ initGMWrapper();
 // 変数定義 //
 //----------//
 // ソフトウェアバージョン
-var VERSION = "0.04";
+var VERSION = "0.05";
 
 // インストール直後から設定なしで自動的に本拠地での巡回を開始するか
 var AUTO_START = true;
@@ -53,6 +54,7 @@ var GM_KEY = "AB202_" + HOST.substr(0,HOST.indexOf("."));
 //--------------------//
 var TYPE_LEVELUP = 'levelup';
 var TYPE_BUILD = 'build';
+var TYPE_DELETE = 'delete';
 
 var STATUS_DELETE   = '削除中';
 var STATUS_NOWBUILD = '建設中';
@@ -64,6 +66,7 @@ var STATUS_PROMISE  = '建設準備中';
 // タイプ判定
 var TYPE_CHECKBOX = 'c';
 var TYPE_INPUT = 't';
+var TYPE_SELECT = 's';
 var TYPE_BLANK = 'b';
 var TYPE_LABEL = 'l';
 
@@ -170,38 +173,75 @@ var CA_SKILL_C6     = 'ca86';  // 徳義為政
 var CA_OFF          = 'caoff'; // 設定無効
 var CA_AVAILABLE    = 'caavl'; // 有効施設存在時のみ発動
 
+// 資源貯蓄
+var CR_AVAILABLE    = 'cravl'; // 資源貯蓄有効
+var TR_WOOD         = 'tr01';  // 木
+var TR_STONE        = 'tr02';  // 石
+var TR_IRON         = 'tr03';  // 鉄
+var TR_FOOD         = 'tr04';  // 糧
+
+// 市場変換
+var CM_AVAILABLE    = 'cravl'; // 資源変換有効
+var SM_TYPE         = 'sm01';  // 変換元資源
+var TS_START        = 'tr05';  // 変換開始資源量
+var TS_RESOURCE     = 'tr06';  // 変換資源量
+var TS_TOWOOD       = 'tr07';  // 木に変換
+var TS_TOSTONE      = 'tr08';  // 石に変換
+var TS_TOIRON       = 'tr09';  // 鉄に変換
+var TS_TOFOOD       = 'tr10';  // 糧に変換
+
+// 資源・市場変換連携
+var CR_PRIORITY     = 'rcpri'; // 不足資源変換優先
+var CR_OVERFLOW     = 'rcovr'; // 上限を超えた資源に変換しない
+
+//-----------------------
 // 保存対象の設定項目
+//-----------------------
+// 建設設定[基本](数値入力)
 var g_saveBuilderOptionList1 = [
-  // 建設設定[基本](数値入力)
   TL_BASE, TL_PARADE, TL_TRAINING, TL_MARKET, TL_WOOD, TL_LODGE,
   TL_EXPEDITE, TL_LABO, TL_STONE, TL_L_LODGE, TL_W_TOWER, TL_SYMBOL,
   TL_IRON, TL_BALLACK, TL_W_SMITHY, TL_W_WHEEL, TL_FOOD, TL_B_BALLACK,
   TL_A_SMITHY, TL_FACTORY, TL_STORAGE, TL_STABLE, TL_WEAPON,
 ];
+
+// 建設設定[拡張]
 var g_saveBuilderOptionList2 = [
-  // 建設設定[拡張](チェックボックス)
+  // (チェックボックス)
   CO_FOOD_BASE, CO_STORAGE_BASE, CO_HAS_EMPTY, CO_FOOD, CO_WOOD,
   CO_STONE, CO_IRON, CO_STORAGE, CO_LODGE, CO_L_LODGE, CO_PARADE,
   CO_SYMBOL, CO_LABO, CO_W_TOWER, CO_BALLACK, CO_B_BALLACK,
   CO_STABLE, CO_WEAPON, CO_W_SMITHY, CO_A_SMITHY, CO_TRAINING,
   CO_EXPEDITE, CO_MARKET, CO_FACTORY, CO_W_WHEEL, CO_OFF,
 
-  // 建設設定[拡張](数値入力)
+  // (数値入力)
   TO_HAS_EMPTY, TO_FOOD, TO_WOOD, TO_STONE, TO_IRON, TO_STORAGE,
   TO_LODGE, TO_L_LODGE,
 ];
+
+// 建設設定[カスタム](チェックボックス)
 var g_saveBuilderOptionList3 = [
-  // 建設設定[カスタム](チェックボックス)
   CC_OFF,
 ];
+
+// 内政設定
 var g_saveBuilderOptionList4 = [
-  // 内政設定
   CA_SKILL_F1, CA_SKILL_W1, CA_SKILL_S1, CA_SKILL_I1,
   CA_SKILL_F2, CA_SKILL_W2, CA_SKILL_S2, CA_SKILL_I2, CA_SKILL_R1, CA_SKILL_F3, CA_SKILL_W1, CA_SKILL_W2, CA_SKILL_W3, CA_SKILL_W4,
   CA_SKILL_T1, CA_SKILL_T2, CA_SKILL_T3, CA_SKILL_T4, CA_SKILL_T5, CA_SKILL_T6, CA_SKILL_T7, CA_SKILL_T8, CA_SKILL_T9, CA_SKILL_TA,
   CA_SKILL_Q1, CA_SKILL_Q2, CA_SKILL_Q3,
   CA_SKILL_C1, CA_SKILL_C2, CA_SKILL_C3, CA_SKILL_C4, CA_SKILL_C5, CA_SKILL_C6,
   CA_OFF, CA_AVAILABLE
+];
+
+// 資源・市場設定
+var g_saveMarketOptionList = [
+  // 資源設定
+  CR_AVAILABLE, TR_WOOD, TR_STONE, TR_IRON, TR_FOOD,
+  // 市場設定
+  CM_AVAILABLE, SM_TYPE, TS_START, TS_RESOURCE, TS_TOWOOD, TS_TOSTONE, TS_TOIRON, TS_TOFOOD,
+  // 資源・市場設定
+  CR_PRIORITY, CR_OVERFLOW
 ];
 
 //----------------//
@@ -441,7 +481,7 @@ function buildConstruction(villageInfo, params) {
   }
 
   // 建設実行
-  setBuildError(villageInfo.x, villageInfo.y, "建設中：" + params.target.construcion);  // 情報を入れることで万一の暴走阻止
+  setBuildError(villageInfo.x, villageInfo.y, "建設中：" + params.target.construction);  // 情報を入れることで万一の暴走阻止
 
   // 建設施設の情報をいれる(設定した情報は現在未使用)
   setBuildInfo(villageInfo.x, villageInfo.y, params.target);
@@ -491,15 +531,40 @@ function autopatrol() {
 
   var now = Math.floor(new Date().getTime() / 1000);
   var nextPatrol = time - now;
-  if (nextPatrol > 300) {
-    // 300秒を最大巡回時間とする
-    nextPatrol = 300;
+  var limit = loadValue("patrolMinutes");
+  if (limit == null) {
+    limit = 300;
+  } else {
+    limit = limit * 60;
+  }
+  if (nextPatrol > limit) {
+    // 設定値を最大巡回時間とする
+    nextPatrol = limit;
   } else if (nextPatrol < 10) {
     // 10秒以下なら、10秒後
     nextPatrol = 10;       
   } else {
     nextPatrol = nextPatrol + 10;  // 10秒以上なら建設完了10秒後にする
   }
+
+  // 次の巡回先を表示
+  if (j$("#actionLog").length == 0) {
+    j$("#nextLocation").css('top', '500px');
+  }
+  j$("#nextLocation").css('display', 'block');
+  j$("#autopatrolVillage").text(villageList[pos].name);
+  j$("#autopatrolTimer").text(nextPatrol);
+
+  saveValue("nextPatrol", nextPatrol);
+  var timer1 = window.setInterval(
+    function() {
+      var restTimeSec = loadValue("nextPatrol");
+      restTimeSec = restTimeSec - 1;
+      j$("#autopatrolTimer").text(restTimeSec);
+      saveValue("nextPatrol", restTimeSec);
+    }, 1000
+  );
+
 
   // 次の巡回先を指定
   setInterval(
@@ -561,9 +626,17 @@ function callRequest(method, url, data, callback, params) {
 // ビルダー設定画面起動ボタンを描画 //
 //----------------------------------//
 function drawBuilderSettingButton() {
-  j$("div[id=sidebar] div[class=sideBox]").eq(1).before(
-    "<a href='#' id=autoBuilderButton style='color:cyan; text-decoration: underline;'>AutoBuilder</a>" +
-    "<input type=button value='一時停止' style='font-size:10px; position:relative; top:-4px; float:right;'>"
+  j$("#sidebar div[class=sideBox]").eq(1).before(
+    "<a href='#' id=autoBuilderButton class='autobuilderlink'>AutoBuilder</a>" +
+    "<input type=button value='一時停止' class='pausebutton'>"
+  );
+  j$("#basepoint").after(
+    "<div id=nextLocation style='position: absolute; top: 420px; left : 10px; background-color: #f4f4f4; border: 1px black solid; display: none;'>" +
+      "<div style='margin: 2px;'>" +
+        "<span style='color: red; margin-right: 3px; font-weight: bold;'>自動巡回</span>" +
+        "<span id='autopatrolVillage'></span><span>まであと</span><span id='autopatrolTimer'></span><span>秒</span>" +
+      "</div>" +
+    "</div>"
   );
   j$("#autoBuilderButton").bind("click", 
     function(){
@@ -583,6 +656,13 @@ function drawBuilderSettingButton() {
 
         // 拠点一覧自動更新の設定
         j$("#al").prop('checked', loadValue("autoRefresh"));
+
+        // 定期巡回時間の設定
+        if (loadValue("patrolMinutes") == null) {
+          j$("#apm").val(5);
+        } else {
+          j$("#apm").val(loadValue("patrolMinutes"));
+        }
 
         // 拠点リスト表示
         j$("#villageWindow").css("display", "block");
@@ -615,7 +695,7 @@ function drawVillageWindow() {
   j$("#mapboxInner").children().append("\
     <div id=villageWindow class=villageWindow> \
       <div class=villageheader> \
-        <span>AutoBuilder Ver.0.04</span> \
+        <span>AutoBuilder Ver.0.05</span> \
       </div> \
       <div class=villagelistheader> \
         <span>対象拠点一覧</span> \
@@ -623,6 +703,7 @@ function drawVillageWindow() {
       <table id=villageList class=villagelist> \
       </table> \
       <div class=villagesubmenu> \
+        <div><span>定期巡回時間</span><input type=text id=apm size=2 value=5  style='margin:2px;'><span>分</span></div> \
         <div><input type=checkbox id=al><label for=v1 class=highlight>拠点リストを自動で最新化</label></div> \
       </div> \
       <input id=builderSave class=saveButton type=button value='保存'> \
@@ -647,6 +728,13 @@ function drawVillageWindow() {
 
       // 拠点一覧自動更新
       saveValue("autoRefresh", j$("#al").prop('checked'));
+
+      // 定期巡回時間
+      var patrolminutes = parseInt(j$("#apm").val());
+      if (patrolminutes == false || patrolminutes < 1) {
+        patrolminutes = 1;
+      }
+      saveValue("patrolMinutes", patrolminutes);
 
       alert("保存しました");
       j$("#settingWindow").css("display", "none");
@@ -747,7 +835,26 @@ function drawVillageWindow() {
         j$("#villageY").text(data.data[3]);       // 座標Y
         j$("#villageListId").text(data.data[0]);  // 一覧アクセス用のid
         j$("#villageDefault").text();             // デフォルトではない
+        j$("#villageMarket").text();              // 市場設定ではない
         j$("#optionDefaultSaveButton").css("display", "block");
+        j$("#optionInitButton").css("display", "inline");
+        j$("#optionSaveButton").css("display", "inline");
+        j$("#marketSaveButton").css("display", "none");
+
+        // 市場タブを消す
+        j$("#tabs li").each(
+          function() {
+            if (j$(this).attr("id") == 'tab5') {
+              j$(this).css("display", "none");
+              j$(this).attr("class", "");
+            } else {
+              j$(this).css("display", "block");
+              j$(this).attr("class", "selected");
+              j$(this).click();
+            }
+          }
+        );
+        j$("#tab1").click();
 
         // 設定済み情報があれば書き戻す
         var options = loadVillageSettings(data.data[2], data.data[3]);
@@ -793,7 +900,7 @@ function drawVillageWindow() {
   j$("#villageList").append(
     "<tr><td style='height: 4px;'></td></tr>" +
     "<tr><td><span id='vdefault' class='villagename'>※ 拠点初期値設定 ※</span></td></tr>"
-//    "<tr><td><span id='vmarket' class='villagename'>※ 資源設定 ※</span></td></tr>"
+//    "<tr><td><span id='vmarket' class='villagename'>※ 資源・市場設定 ※</span></td></tr>"
   );
   j$("#vdefault").bind("click",
     function(){
@@ -804,7 +911,25 @@ function drawVillageWindow() {
       j$("#villageX").text("0");       // 座標X
       j$("#villageY").text("0");       // 座標Y
       j$("#villageDefault").text("1"); // 初期設定
+      j$("#villageMarket").text();     // 市場設定ではない
       j$("#optionDefaultSaveButton").css("display", "none");
+      j$("#optionInitButton").css("display", "inline");
+      j$("#optionSaveButton").css("display", "inline");
+      j$("#marketSaveButton").css("display", "none");
+
+      // 市場タブを消す
+      j$("#tabs li").each(
+        function() {
+          if (j$(this).attr("id") == 'tab5') {
+            j$(this).css("display", "none");
+            j$(this).attr("class", "");
+          } else {
+            j$(this).css("display", "block");
+            j$(this).attr("class", "selected");
+          }
+        }
+      );
+      j$("#tab1").click();
 
       // 設定値を書き戻す
       var options = loadVillageSettings("default");
@@ -814,6 +939,43 @@ function drawVillageWindow() {
       j$("#baseVillage").text("");
       j$("#" + CO_LABO).removeAttr("disabled");
       j$("label", j$("#" + CO_LABO).parent()).css("text-decoration", "none");
+
+      // 初期設定画面ではシミュレーション不可
+      j$("#execSimulator1").attr("disabled", "");
+      j$("#execSimulator2").attr("disabled", "");
+      j$("#execSimulator3").attr("disabled", "");
+      j$("#settingWindow").css("display", "block");
+    }
+  );
+
+  j$("#vmarket").bind("click",
+    function(){
+      // 情報設定
+      j$("#villageList span[class*='current']").attr("class", "villagename");    // カレント拠点クラスをリセット
+      j$("#vmarket").attr("class", "current villagename");
+      j$("#villageName").text("[資源・市場設定]");    // 拠点名
+      j$("#villageX").text("0");       // 座標X
+      j$("#villageY").text("0");       // 座標Y
+      j$("#villageDefault").text();    // 初期設定ではない
+      j$("#villageMarket").text("1");  // 市場設定
+      j$("#optionDefaultSaveButton").css("display", "none");
+      j$("#optionInitButton").css("display", "none");
+      j$("#optionSaveButton").css("display", "none");
+      j$("#marketSaveButton").css("display", "inline");
+
+      // 市場と無関係なタブを消す
+      j$("#tabs li").each(
+        function() {
+          if (j$(this).attr("id") != 'tab5') {
+            j$(this).css("display", "none");
+            j$(this).attr("class", "");
+          } else {
+            j$(this).css("display", "block");
+            j$(this).attr("class", "selected");
+          }
+        }
+      );
+      j$("#tab5").click();
 
       // 初期設定画面ではシミュレーション不可
       j$("#execSimulator1").attr("disabled", "");
@@ -839,18 +1001,21 @@ function drawSettingWindow() {
         <span id=villageY class='hidden'></span>\
         <span id=villageListId class='hidden'></span> \
         <span id=villageDefault class='hidden'></span>\
+        <span id=villageMarket class='hidden'></span>\
       </div> \
       <ul id=tabs class=buildertabs> \
       </ul> \
       <div id=body_tabs> \
       </div> \
       <input id=optionSaveButton class=builderbutton type=button value='保存する'> \
+      <input id=marketSaveButton class=builderbutton type=button value='保存する'> \
       <input id=optionDefaultSaveButton class=builderbuttonRight type=button value='初期設定値として保存する'> \
       <input id=optionInitButton class=builderbuttonRight type=button value='ビルダー初期値にリセットする'> \
       <input id=optionCloseButton class=builderbutton type=button value='閉じる'> \
     </div> \
   ");
 
+  // 拠点別オプション保存
   j$("#optionSaveButton").bind('click',
     function() {
       // 設定オプションの保存
@@ -871,6 +1036,7 @@ function drawSettingWindow() {
     }
   );
 
+  // 初期値設定保存
   j$("#optionDefaultSaveButton").bind('click',
     function() {
       var options = getBuilderOptions();
@@ -880,12 +1046,14 @@ function drawSettingWindow() {
     }
   );
 
+  // 拠点別設定クローズ
   j$("#optionCloseButton").bind('click',
     function() {
       j$("#settingWindow").css("display", "none");
     }
   );
 
+  // ビルダー初期値
   j$("#optionInitButton").bind('click',
     function() {
       initOptions();
@@ -893,9 +1061,10 @@ function drawSettingWindow() {
     }
   );
 
-  j$("#optionCloseButton").bind('click',
+  // 資源・市場設定保存
+  j$("#marketSaveButton").bind('click',
     function() {
-      j$("#settingWindow").css("display", "none");
+      var options = getMarketOptions();
     }
   );
 
@@ -994,6 +1163,18 @@ function drawSettingWindow() {
     </div>"
   );
 */
+  // 市場・資源管理
+  j$("#tab5").css("display", "none");
+  j$("#body_tab5").append("<div class=contentsheader>資源貯蓄設定</div>");
+  obj = drawTabTableContents(settings.contents['tab5-1']);
+  j$("#body_tab5").append(obj);
+  j$("#body_tab5").append("<div class=contentsheader>市場変換設定</div>");
+  obj = drawTabTableContents(settings.contents['tab5-2']);
+  j$("#body_tab5").append(obj);
+  j$("#body_tab5").append("<div class=contentsheader>資源貯蓄・市場連動設定</div>");
+  obj = drawTabTableContents(settings.contents['tab5-3']);
+  j$("#body_tab5").append(obj);
+
   //--------------------------------------------------
   // 初期値が保存されていなければ初期設定値を保存する
   //--------------------------------------------------
@@ -1245,16 +1426,26 @@ function drawTabTableContents(contents) {
       for (var k = 0; k < contents[i][j].length; k++) {
         var type = contents[i][j][k][0];
         var id = contents[i][j][k][1];
-        var text = contents[i][j][k][2];
+        var item = contents[i][j][k][2];
+        var size = contents[i][j][k][3];
         if (type == TYPE_CHECKBOX) {
-          // チェックボックス
-          lineText += "<td><input type=checkbox id=" + id + "><label for=" + id + ">" + text + "</label></td>";
+          lineText += "<td><input type=checkbox id=" + id + "><label for=" + id + ">" + item + "</label></td>";
         } else if (type == TYPE_INPUT) {
           // テキスト
-          lineText += "<td><input type=text id=" + id + " value=" + text + " size=2 class=rspace></td>";
+          if (size != undefined) {
+            lineText += "<td><input type=text id=" + id + " value=" + item + " size=" + size + " class=rspace></td>";
+          } else {
+            lineText += "<td><input type=text id=" + id + " value=" + item + " size=2 class=rspace></td>";
+          }
         } else if (type == TYPE_LABEL) {
           // 見出し
-          lineText += "<td colspan=99><span class=tableinfo>" + text + "</span></td>";
+          lineText += "<td colspan=99><span class=tableinfo>" + item + "</span></td>";
+        } else if (type == TYPE_SELECT) {
+          lineText += "<td><select id='" + id + "' name='" + id + "'>";
+          for (var l = 0; l < item.length; l++) {
+            lineText += "<option value='" + item[l]  +"'>" + item[l] + "　</option>";
+          }
+          lineText += "</select></td>";
         } else if (type == TYPE_BLANK) {
           // ブランク
           lineText += "<td><span>&nbsp;</span></td>";
@@ -1304,10 +1495,10 @@ function drawSimulatorWindow() {
 
   // 進捗テーブルの作成
   j$("#body_simulator").append("\
-    <div style='position:relative; top:6px;'> \
+    <div class='simulatorBox'> \
       <input id=simulatorInit type='button' value='最初から'> \
       <input id=simulatorNext type='button' value='次の予定'> \
-      <table style='position:relative; top: 4px; border: none; color: white;' id=simulateHistory> \
+      <table class='simulatorHistory' id=simulateHistory> \
       </table> \
     </div>"
   );
@@ -1341,10 +1532,6 @@ function drawSimulatorWindow() {
       // 描画
       j$("#simulateHistory tr").remove();
       for (var i = 0; i < g_buildList.length; i++) {
-        if (g_buildList[i].status == STATUS_DELETE) {
-          continue;
-        }
-
         var x = g_buildList[i].x;
         var y = g_buildList[i].y;
 
@@ -1354,20 +1541,29 @@ function drawSimulatorWindow() {
         if (g_buildList[i].status == STATUS_NOWBUILD) {
           statusText = "[建]";
           frontColor = "yellow";
+        } else if (g_buildList[i].status == STATUS_DELETE) {
+          statusText = "[削]";
+          frontColor = "red";
         } else {
           statusText = "[予]";
           frontColor = "cyan";
         }
-        if (g_buildList[i].level > 0) {
-          g_buildMode = TYPE_LEVELUP;
-        } else {
-          g_buildMode = TYPE_BUILD;
-        }
 
+        if (g_buildList[i].status == STATUS_DELETE) {
+          g_buildMode = TYPE_DELETE;
+        } else {
+          if (g_buildList[i].level > 0) {
+            g_buildMode = TYPE_LEVELUP;
+          } else {
+            g_buildMode = TYPE_BUILD;
+          }
+        }
         setSimulatorHistory(x, y, g_buildList[i].construction, g_villageMap[x][y].level, frontColor, statusText);
 
         // レベル加算
-        g_villageMap[x][y].level ++;
+        if (g_buildMode != TYPE_DELETE) {
+          g_villageMap[x][y].level ++;
+        }
 
         // マップへの表示反映
         setSimulatorMapByPosition(x, y, frontColor);
@@ -1465,7 +1661,13 @@ function setSimulatorHistory(x, y, construction, level, color, subtext) {
   if (j$("#simulateHistory tr").length > 18) {
     j$("#simulateHistory tr").eq(0).remove();
   }
-  if (g_buildMode == TYPE_BUILD) {
+  if (g_buildMode == TYPE_DELETE) {
+    j$("#simulateHistory").append(
+      "<tr><td style='color:" + color + "'>" +
+        "(" + x + "," + y + ") " + construction + " Lv." + level + " [削除]" +
+      "</td></tr>"
+    );
+  } else if (g_buildMode == TYPE_BUILD) {
     j$("#simulateHistory").append(
       "<tr><td style='color:" + color + "'>" +
         "(" + x + "," + y + ") 空き地 -> "  + construction + " Lv." + nextLevel + " " + subtext +
@@ -1563,6 +1765,10 @@ function countConstructions(order) {
           }
         } else {
           // レベルの場合は最小レベルを記録
+          if (g_villageMap[x][y].status == STATUS_DELETE) {
+            // 削除中はレベルアップ対象として扱わない
+            continue;
+          }
           if (g_villageMap[x][y].level < levels[construction]) {
             levels[construction] = g_villageMap[x][y].level;
           }
@@ -2010,7 +2216,7 @@ function getCreateTarget(target) {
 function getLevelupTarget(target) {
   for (var y = 0; y < 7; y++) {
     for (var x = 0; x < 7; x++) {
-      if (target.construction == g_villageMap[x][y].construction && target.level == g_villageMap[x][y].level) {
+      if (target.construction == g_villageMap[x][y].construction && target.level == g_villageMap[x][y].level && g_villageMap[x][y].status != STATUS_DELETE) {
         return g_villageMap[x][y];
       }
     }
@@ -2178,9 +2384,9 @@ function collectVillageMap(targetObject) {
   g_buildList = buildList;
 }
 
-//------------------------------//
-// 画面で設定された設定値を取得 //
-//------------------------------//
+//--------------------------------------------------//
+// 画面で設定された設定値を取得(ビルダーオプション) //
+//--------------------------------------------------//
 function getBuilderOptions() {
   var saveOptions = {};
 
@@ -2243,7 +2449,7 @@ function getBuilderOptions() {
     }
     saveOptions[key] = value;
   }
-
+/*
   // 建設設定(カスタム)
   for(var i = 0; i < g_saveBuilderOptionList3.length; i++) {
     var key = g_saveBuilderOptionList3[i];
@@ -2273,13 +2479,13 @@ function getBuilderOptions() {
     }
     saveOptions[key] = value;
   }
-
+*/
   return saveOptions;
 }
 
-//------------------------------//
-// 画面で設定された設定値を取得 //
-//------------------------------//
+//----------------------------------------------------//
+// 画面で設定された設定値を取得（ビルダーオプション） //
+//----------------------------------------------------//
 function setBuilderOptions(options) {
   if (options.length == 0) {
     // 復元処理
@@ -2292,6 +2498,28 @@ function setBuilderOptions(options) {
       }
     }
   }
+}
+
+//--------------------------------------------------//
+// 画面で設定された設定値を取得(ビルダーオプション) //
+//--------------------------------------------------//
+function getMarketOptions() {
+  var saveOptions = {};
+
+  // 資源・市場設定
+  for(var i = 0; i < g_saveMarketOptionList.length; i++) {
+    var key = g_saveMarketOptionList[i];
+    var value;
+    if (j$("#" + key).attr("type") == 'checkbox') {
+      value = j$("#" + key).prop('checked');
+    } else if (j$("#" + key).attr("type") == 'text') {
+      value = parseInt(j$("#" + key).val());
+    } else {
+      value = j$("select[name=" + key +"] option:selected").val();
+    }
+    saveOptions[key] = value;
+  }
+  console.log(JSON.stringify(saveOptions));
 }
 
 //--------------------//
@@ -2556,10 +2784,10 @@ function getResources(isSimulate) {
 function getSettingViewContents() {
   var tabSettings = {
     'tab1':'建設設定[基本]',
-    'tab2':'建設設定[拡張]'
+    'tab2':'建設設定[拡張]',
 //    'tab3':'建設設定[カスタム]',
 //    'tab4':'内政設定',
-//    'tab5':'市場設定'
+    'tab5':'市場・資源管理',
   };
 
   // 各種設定
@@ -2649,7 +2877,7 @@ function getSettingViewContents() {
         [[TYPE_CHECKBOX, CO_FACTORY,   '工場　　　'], [TYPE_BLANK, '', '']],
         [[TYPE_CHECKBOX, CO_W_WHEEL,   '水車　　　'], [TYPE_BLANK, '', '']],
       ],
-    ]
+    ],
     // 内政スキルリスト
     /*
     ,'tab4': [
@@ -2721,6 +2949,47 @@ function getSettingViewContents() {
       ],
     ]
     */
+    'tab5-1': [
+      [
+        [[TYPE_CHECKBOX, CR_AVAILABLE, '有効にする']],
+      ],
+      [
+        [[TYPE_LABEL, '', '木の貯蓄量　　'], [TYPE_INPUT, TR_WOOD,  0, 8]],
+        [[TYPE_LABEL, '', '石の貯蓄量　　'], [TYPE_INPUT, TR_STONE, 0, 8]],
+      ],
+      [
+        [[TYPE_LABEL, '', '鉄の貯蓄量　　'], [TYPE_INPUT, TR_IRON,  0, 8]],
+        [[TYPE_LABEL, '', '糧の貯蓄量　　'], [TYPE_INPUT, TR_FOOD,  0, 8]],
+      ],
+    ],
+    'tab5-2': [
+      [
+        [[TYPE_CHECKBOX, CM_AVAILABLE, '有効にする']],
+      ],
+      [
+        [[TYPE_LABEL, '', '変換元資源　　'], [TYPE_SELECT, SM_TYPE, ["糧", "木", "石", "鉄"]]],
+      ],
+      [
+        [[TYPE_LABEL, '', '変換開始資源量'], [TYPE_INPUT, TS_START, 0, 8]],
+        [[TYPE_LABEL, '', '変換する資源量'], [TYPE_INPUT, TS_RESOURCE, 0, 8]],
+      ],
+      [
+        [[TYPE_LABEL, '', '木に変換　　　'], [TYPE_INPUT, TS_TOWOOD, 0, 8]],
+        [[TYPE_LABEL, '', '石に変換　　　'], [TYPE_INPUT, TS_TOSTONE, 0, 8]],
+      ],
+      [
+        [[TYPE_LABEL, '', '鉄に変換　　　'], [TYPE_INPUT, TS_TOIRON, 0, 8]],
+        [[TYPE_LABEL, '', '糧に変換　　　'], [TYPE_INPUT, TS_TOFOOD, 0, 8]],
+      ],
+    ],
+    'tab5-3': [
+      [
+        [[TYPE_CHECKBOX, CR_PRIORITY, '貯蓄モード時は、最も少ない資源への変換を優先する']],
+      ],
+      [
+        [[TYPE_CHECKBOX, CR_OVERFLOW, '貯蓄モード時は、上限を超えた資源への変換をしない']],
+      ],
+    ]
   };
 
   return {'tabs':tabSettings, 'contents':tables};
@@ -2763,6 +3032,14 @@ function getConstructionOptions(constructions) {
 //---------------//
 function addBuilderCss() {
   var css = "\
+    /** オートビルダーリンクのcss定義 */ \
+    a.autobuilderlink { \
+      color:cyan; text-decoration: underline; \
+    } \
+    /** 一時停止ボタンのcss定義 */ \
+    input.pausebutton { \
+      font-size:10px; position:relative; top:-4px; float:right; \
+    } \
     /** 拠点一覧のcss定義 */ \
     div.villageWindow { \
       display:none; \
@@ -2951,6 +3228,12 @@ function addBuilderCss() {
     } \
     .simulatorWindow .refreshButton { \
       font-size: 12px; font-weight: normal;\
+    } \
+    div.simulatorBox { \
+      position:relative; top:6px; \
+    } \
+    table.simulatorHistory { \
+      position:relative; top: 4px; border: none; color: white; \
     } \
   ";
   GM_addStyle(css);
