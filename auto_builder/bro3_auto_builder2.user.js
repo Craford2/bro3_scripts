@@ -4,7 +4,7 @@
 // @include      http://*.3gokushi.jp/user/*
 // @include      http://*.3gokushi.jp/village.php*
 // @description  ブラウザ三国志オートビルダー by Craford
-// @version      0.05
+// @version      0.06
 
 // @grant   GM_addStyle
 // @grant   GM_deleteValue
@@ -20,6 +20,7 @@
 // 0.01    2014/12/27 jquery1.11.1ベースで作成開始
 // 0.04    2015/08/23 内政短縮100%スキルでもビルダーが停止しないようにする対応を追加
 // 0.05    2015/09/03 建設中：undefined対応、削除中施設があるときにレベルアップ失敗で止まる対応、巡回タイマー表示
+// 0.06    2015/10/19 コメントフォーム変更により処理できなくなったため、CookieからSSIDを取るように修正
 
 // load jQuery
 jQuery.noConflict();
@@ -32,7 +33,7 @@ initGMWrapper();
 // 変数定義 //
 //----------//
 // ソフトウェアバージョン
-var VERSION = "0.05";
+var VERSION = "0.06";
 
 // インストール直後から設定なしで自動的に本拠地での巡回を開始するか
 var AUTO_START = true;
@@ -695,7 +696,7 @@ function drawVillageWindow() {
   j$("#mapboxInner").children().append("\
     <div id=villageWindow class=villageWindow> \
       <div class=villageheader> \
-        <span>AutoBuilder Ver.0.05</span> \
+        <span>AutoBuilder Ver.0.06</span> \
       </div> \
       <div class=villagelistheader> \
         <span>対象拠点一覧</span> \
@@ -2542,15 +2543,7 @@ function isExecute() {
 // セッションID取得 //
 //------------------//
 function getSessionId() {
-  // コメントフォームからセッションIDを取得
-  var match = j$("div[class=commentform]").html().match(/\n\'(.*)\'\n/);
-  if( match == null || match == undefined ){
-    match = j$("div[class=commentbtn]").html().match(/get_chat_data\(.*,.*,'(.*)'\);/);
-  }
-  if( match == null || match == undefined ){
-    return null;
-  }
-  return match[1];
+  return getCookie('SSID');
 }
 
 //----------------------------------//
@@ -3826,4 +3819,15 @@ function initGMWrapper() {
       }
     };
   }
+}
+
+function getCookie(name) {
+    var nameEQ = name + "=";
+    var ca = document.cookie.split(';');
+    for(var i=0;i < ca.length;i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1,c.length);
+        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+    }
+    return null;
 }
